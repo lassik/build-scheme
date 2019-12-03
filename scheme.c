@@ -20,9 +20,6 @@
 #ifdef WIN32
 #define snprintf _snprintf
 #endif
-#if USE_DL
-# include "dynload.h"
-#endif
 #if USE_MATH
 # include <math.h>
 #endif
