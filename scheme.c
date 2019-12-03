@@ -104,10 +104,6 @@
 # define STDIO_ADDS_CR 0
 #endif
 
-#ifndef INLINE
-# define INLINE
-#endif
-
 #ifndef SHOW_ERROR_LINE   /* Show error line in file */
 # define SHOW_ERROR_LINE 1
 #endif
@@ -460,7 +456,7 @@ static int num_lt(num a, num b);
 static int num_le(num a, num b);
 
 static int is_zero_double(double x);
-static INLINE int num_is_integer(pointer p) {
+static int num_is_integer(pointer p) {
   return ((p)->_object._number.is_fixnum);
 }
 
@@ -471,17 +467,17 @@ static num num_one;
 #define typeflag(p)      ((p)->_flag)
 #define type(p)          (typeflag(p)&T_MASKTYPE)
 
-INTERFACE INLINE int is_string(pointer p)     { return (type(p)==T_STRING); }
+INTERFACE int is_string(pointer p)     { return (type(p)==T_STRING); }
 #define strvalue(p)      ((p)->_object._string._svalue)
 #define strlength(p)        ((p)->_object._string._length)
 
 INTERFACE static int is_list(scheme *sc, pointer p);
-INTERFACE INLINE int is_vector(pointer p)    { return (type(p)==T_VECTOR); }
+INTERFACE int is_vector(pointer p)    { return (type(p)==T_VECTOR); }
 INTERFACE static void fill_vector(pointer vec, pointer obj);
 INTERFACE static pointer vector_elem(pointer vec, int ielem);
 INTERFACE static pointer set_vector_elem(pointer vec, int ielem, pointer a);
-INTERFACE INLINE int is_number(pointer p)    { return (type(p)==T_NUMBER); }
-INTERFACE INLINE int is_integer(pointer p) {
+INTERFACE int is_number(pointer p)    { return (type(p)==T_NUMBER); }
+INTERFACE int is_integer(pointer p) {
   if (!is_number(p))
       return 0;
   if (num_is_integer(p) || (double)ivalue(p) == rvalue(p))
@@ -489,13 +485,13 @@ INTERFACE INLINE int is_integer(pointer p) {
   return 0;
 }
 
-INTERFACE INLINE int is_real(pointer p) {
+INTERFACE int is_real(pointer p) {
   return is_number(p) && (!(p)->_object._number.is_fixnum);
 }
 
-INTERFACE INLINE int is_character(pointer p) { return (type(p)==T_CHARACTER); }
-INTERFACE INLINE char *string_value(pointer p) { return strvalue(p); }
-INLINE num nvalue(pointer p)       { return ((p)->_object._number); }
+INTERFACE int is_character(pointer p) { return (type(p)==T_CHARACTER); }
+INTERFACE char *string_value(pointer p) { return strvalue(p); }
+num nvalue(pointer p)       { return ((p)->_object._number); }
 INTERFACE long ivalue(pointer p)      { return (num_is_integer(p)?(p)->_object._number.value.ivalue:(long)(p)->_object._number.value.rvalue); }
 INTERFACE double rvalue(pointer p)    { return (!num_is_integer(p)?(p)->_object._number.value.rvalue:(double)(p)->_object._number.value.ivalue); }
 #define ivalue_unchecked(p)       ((p)->_object._number.value.ivalue)
@@ -504,11 +500,11 @@ INTERFACE double rvalue(pointer p)    { return (!num_is_integer(p)?(p)->_object.
 #define set_num_real(p)      (p)->_object._number.is_fixnum=0;
 INTERFACE  long charvalue(pointer p)  { return ivalue_unchecked(p); }
 
-INTERFACE INLINE int is_port(pointer p)     { return (type(p)==T_PORT); }
-INTERFACE INLINE int is_inport(pointer p)  { return is_port(p) && p->_object._port->kind & port_input; }
-INTERFACE INLINE int is_outport(pointer p) { return is_port(p) && p->_object._port->kind & port_output; }
+INTERFACE int is_port(pointer p)     { return (type(p)==T_PORT); }
+INTERFACE int is_inport(pointer p)  { return is_port(p) && p->_object._port->kind & port_input; }
+INTERFACE int is_outport(pointer p) { return is_port(p) && p->_object._port->kind & port_output; }
 
-INTERFACE INLINE int is_pair(pointer p)     { return (type(p)==T_PAIR); }
+INTERFACE int is_pair(pointer p)     { return (type(p)==T_PAIR); }
 #define car(p)           ((p)->_object._cons._car)
 #define cdr(p)           ((p)->_object._cons._cdr)
 INTERFACE pointer pair_car(pointer p)   { return car(p); }
@@ -516,32 +512,32 @@ INTERFACE pointer pair_cdr(pointer p)   { return cdr(p); }
 INTERFACE pointer set_car(pointer p, pointer q) { return car(p)=q; }
 INTERFACE pointer set_cdr(pointer p, pointer q) { return cdr(p)=q; }
 
-INTERFACE INLINE int is_symbol(pointer p)   { return (type(p)==T_SYMBOL); }
-INTERFACE INLINE char *symname(pointer p)   { return strvalue(car(p)); }
+INTERFACE int is_symbol(pointer p)   { return (type(p)==T_SYMBOL); }
+INTERFACE char *symname(pointer p)   { return strvalue(car(p)); }
 #if USE_PLIST
-INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
+int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
 #define symprop(p)       cdr(p)
 #endif
 
-INTERFACE INLINE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
-INTERFACE INLINE int is_proc(pointer p)     { return (type(p)==T_PROC); }
-INTERFACE INLINE int is_foreign(pointer p)  { return (type(p)==T_FOREIGN); }
-INTERFACE INLINE char *syntaxname(pointer p) { return strvalue(car(p)); }
+INTERFACE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
+INTERFACE int is_proc(pointer p)     { return (type(p)==T_PROC); }
+INTERFACE int is_foreign(pointer p)  { return (type(p)==T_FOREIGN); }
+INTERFACE char *syntaxname(pointer p) { return strvalue(car(p)); }
 #define procnum(p)       ivalue(p)
 static const char *procname(pointer x);
 
-INTERFACE INLINE int is_closure(pointer p)  { return (type(p)==T_CLOSURE); }
-INTERFACE INLINE int is_macro(pointer p)    { return (type(p)==T_MACRO); }
-INTERFACE INLINE pointer closure_code(pointer p)   { return car(p); }
-INTERFACE INLINE pointer closure_env(pointer p)    { return cdr(p); }
+INTERFACE int is_closure(pointer p)  { return (type(p)==T_CLOSURE); }
+INTERFACE int is_macro(pointer p)    { return (type(p)==T_MACRO); }
+INTERFACE pointer closure_code(pointer p)   { return car(p); }
+INTERFACE pointer closure_env(pointer p)    { return cdr(p); }
 
-INTERFACE INLINE int is_continuation(pointer p)    { return (type(p)==T_CONTINUATION); }
+INTERFACE int is_continuation(pointer p)    { return (type(p)==T_CONTINUATION); }
 #define cont_dump(p)     cdr(p)
 
 /* To do: promise should be forced ONCE only */
-INTERFACE INLINE int is_promise(pointer p)  { return (type(p)==T_PROMISE); }
+INTERFACE int is_promise(pointer p)  { return (type(p)==T_PROMISE); }
 
-INTERFACE INLINE int is_environment(pointer p) { return (type(p)==T_ENVIRONMENT); }
+INTERFACE int is_environment(pointer p) { return (type(p)==T_ENVIRONMENT); }
 #define setenvironment(p)    typeflag(p) = T_ENVIRONMENT
 
 #define is_atom(p)       (typeflag(p)&T_ATOM)
@@ -552,9 +548,9 @@ INTERFACE INLINE int is_environment(pointer p) { return (type(p)==T_ENVIRONMENT)
 #define setmark(p)       typeflag(p) |= MARK
 #define clrmark(p)       typeflag(p) &= UNMARK
 
-INTERFACE INLINE int is_immutable(pointer p) { return (typeflag(p)&T_IMMUTABLE); }
+INTERFACE int is_immutable(pointer p) { return (typeflag(p)&T_IMMUTABLE); }
 /*#define setimmutable(p)  typeflag(p) |= T_IMMUTABLE*/
-INTERFACE INLINE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
+INTERFACE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 
 #define caar(p)          car(car(p))
 #define cadr(p)          car(cdr(p))
@@ -568,11 +564,11 @@ INTERFACE INLINE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 #define cddddr(p)        cdr(cdr(cdr(cdr(p))))
 
 #if USE_CHAR_CLASSIFIERS
-static INLINE int Cisalpha(int c) { return isascii(c) && isalpha(c); }
-static INLINE int Cisdigit(int c) { return isascii(c) && isdigit(c); }
-static INLINE int Cisspace(int c) { return isascii(c) && isspace(c); }
-static INLINE int Cisupper(int c) { return isascii(c) && isupper(c); }
-static INLINE int Cislower(int c) { return isascii(c) && islower(c); }
+static int Cisalpha(int c) { return isascii(c) && isalpha(c); }
+static int Cisdigit(int c) { return isascii(c) && isdigit(c); }
+static int Cisspace(int c) { return isascii(c) && isspace(c); }
+static int Cisupper(int c) { return isascii(c) && isupper(c); }
+static int Cislower(int c) { return isascii(c) && islower(c); }
 #endif
 
 #if USE_ASCII_NAMES
@@ -631,10 +627,10 @@ static int is_ascii_name(const char *name, int *pc) {
 static int file_push(scheme *sc, const char *fname);
 static void file_pop(scheme *sc);
 static int file_interactive(scheme *sc);
-static INLINE int is_one_of(char *s, int c);
+static int is_one_of(char *s, int c);
 static int alloc_cellseg(scheme *sc, int n);
 static long binary_decode(const char *s);
-static INLINE pointer get_cell(scheme *sc, pointer a, pointer b);
+static pointer get_cell(scheme *sc, pointer a, pointer b);
 static pointer _get_cell(scheme *sc, pointer a, pointer b);
 static pointer reserve_cells(scheme *sc, int n);
 static pointer get_consecutive_cells(scheme *sc, int n);
@@ -662,7 +658,7 @@ static int inchar(scheme *sc);
 static void backchar(scheme *sc, int c);
 static char   *readstr_upto(scheme *sc, char *delim);
 static pointer readstrexp(scheme *sc);
-static INLINE int skipspace(scheme *sc);
+static int skipspace(scheme *sc);
 static int token(scheme *sc);
 static void printslashstring(scheme *sc, char *s, int len);
 static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen);
@@ -894,7 +890,7 @@ static int alloc_cellseg(scheme *sc, int n) {
      return n;
 }
 
-static INLINE pointer get_cell_x(scheme *sc, pointer a, pointer b) {
+static pointer get_cell_x(scheme *sc, pointer a, pointer b) {
   if (sc->free_cell != sc->NIL) {
     pointer x = sc->free_cell;
     sc->free_cell = cdr(x);
@@ -1053,7 +1049,7 @@ static pointer get_vector_object(scheme *sc, int len, pointer init)
   return cells;
 }
 
-static INLINE void ok_to_freely_gc(scheme *sc)
+static void ok_to_freely_gc(scheme *sc)
 {
   car(sc->sink) = sc->NIL;
 }
@@ -1125,7 +1121,7 @@ static pointer oblist_add_by_name(scheme *sc, const char *name)
   return x;
 }
 
-static INLINE pointer oblist_find_by_name(scheme *sc, const char *name)
+static pointer oblist_find_by_name(scheme *sc, const char *name)
 {
   int location;
   pointer x;
@@ -1163,7 +1159,7 @@ static pointer oblist_initial_value(scheme *sc)
   return sc->NIL;
 }
 
-static INLINE pointer oblist_find_by_name(scheme *sc, const char *name)
+static pointer oblist_find_by_name(scheme *sc, const char *name)
 {
      pointer x;
      char    *s;
@@ -2022,7 +2018,7 @@ static pointer readstrexp(scheme *sc) {
 }
 
 /* check c is in chars */
-static INLINE int is_one_of(char *s, int c) {
+static int is_one_of(char *s, int c) {
      if(c==EOF) return 1;
      while (*s)
           if (*s++ == c)
@@ -2031,7 +2027,7 @@ static INLINE int is_one_of(char *s, int c) {
 }
 
 /* skip white characters */
-static INLINE int skipspace(scheme *sc) {
+static int skipspace(scheme *sc) {
      int c = 0, curr_line = 0;
 
      do {
@@ -2471,7 +2467,7 @@ static void new_frame_in_env(scheme *sc, pointer old_env)
   setenvironment(sc->envir);
 }
 
-static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
+static void new_slot_spec_in_env(scheme *sc, pointer env,
                                         pointer variable, pointer value)
 {
   pointer slot = immutable_cons(sc, variable, value);
@@ -2518,13 +2514,13 @@ static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all)
 
 #else /* USE_ALIST_ENV */
 
-static INLINE void new_frame_in_env(scheme *sc, pointer old_env)
+static void new_frame_in_env(scheme *sc, pointer old_env)
 {
   sc->envir = immutable_cons(sc, sc->NIL, old_env);
   setenvironment(sc->envir);
 }
 
-static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
+static void new_slot_spec_in_env(scheme *sc, pointer env,
                                         pointer variable, pointer value)
 {
   car(env) = immutable_cons(sc, immutable_cons(sc, variable, value), car(env));
@@ -2554,17 +2550,17 @@ static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all)
 
 #endif /* USE_ALIST_ENV else */
 
-static INLINE void new_slot_in_env(scheme *sc, pointer variable, pointer value)
+static void new_slot_in_env(scheme *sc, pointer variable, pointer value)
 {
   new_slot_spec_in_env(sc, sc->envir, variable, value);
 }
 
-static INLINE void set_slot_in_env(scheme *sc, pointer slot, pointer value)
+static void set_slot_in_env(scheme *sc, pointer slot, pointer value)
 {
   cdr(slot) = value;
 }
 
-static INLINE pointer slot_value_in_env(pointer slot)
+static pointer slot_value_in_env(pointer slot)
 {
   return cdr(slot);
 }
@@ -2688,13 +2684,13 @@ static pointer _s_return(scheme *sc, pointer a)
   return sc->T;
 }
 
-static INLINE void dump_stack_reset(scheme *sc)
+static void dump_stack_reset(scheme *sc)
 {
   /* in this implementation, sc->dump is the number of frames on the stack */
   sc->dump = (pointer)0;
 }
 
-static INLINE void dump_stack_initialize(scheme *sc)
+static void dump_stack_initialize(scheme *sc)
 {
   sc->dump_size = 0;
   sc->dump_base = NULL;
@@ -2709,7 +2705,7 @@ static void dump_stack_free(scheme *sc)
   sc->dump_size = 0;
 }
 
-static INLINE void dump_stack_mark(scheme *sc)
+static void dump_stack_mark(scheme *sc)
 {
   int nframes = (int)sc->dump;
   int i;
@@ -2724,12 +2720,12 @@ static INLINE void dump_stack_mark(scheme *sc)
 
 #else
 
-static INLINE void dump_stack_reset(scheme *sc)
+static void dump_stack_reset(scheme *sc)
 {
   sc->dump = sc->NIL;
 }
 
-static INLINE void dump_stack_initialize(scheme *sc)
+static void dump_stack_initialize(scheme *sc)
 {
   dump_stack_reset(sc);
 }
@@ -2756,7 +2752,7 @@ static void s_save(scheme *sc, enum scheme_opcodes op, pointer args, pointer cod
     sc->dump = cons(sc, mk_integer(sc, (long)(op)), sc->dump);
 }
 
-static INLINE void dump_stack_mark(scheme *sc)
+static void dump_stack_mark(scheme *sc)
 {
   mark(sc->dump);
 }
