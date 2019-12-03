@@ -629,7 +629,6 @@ static int alloc_cellseg(scheme *sc, int n);
 static long binary_decode(const char *s);
 static pointer get_cell(scheme *sc, pointer a, pointer b);
 static pointer _get_cell(scheme *sc, pointer a, pointer b);
-static pointer reserve_cells(scheme *sc, int n);
 static pointer get_consecutive_cells(scheme *sc, int n);
 static pointer find_consecutive_cells(scheme *sc, int n);
 static void finalize_cell(scheme *sc, pointer a);
@@ -836,10 +835,10 @@ static int alloc_cellseg(scheme *sc, int n) {
      pointer newp;
      pointer last;
      pointer p;
-     char *cp;
+     void *cp;
      long i;
      int k;
-     int adj=ADJ;
+     size_t adj=ADJ;
 
      if(adj<sizeof(struct cell)) {
        adj=sizeof(struct cell);
@@ -922,32 +921,6 @@ static pointer _get_cell(scheme *sc, pointer a, pointer b) {
   sc->free_cell = cdr(x);
   --sc->fcells;
   return (x);
-}
-
-/* make sure that there is a given number of cells free */
-static pointer reserve_cells(scheme *sc, int n) {
-    if(sc->no_memory) {
-        return sc->NIL;
-    }
-
-    /* Are there enough cells available? */
-    if (sc->fcells < n) {
-        /* If not, try gc'ing some */
-        gc(sc, sc->NIL, sc->NIL);
-        if (sc->fcells < n) {
-            /* If there still aren't, try getting more heap */
-            if (!alloc_cellseg(sc,1)) {
-                sc->no_memory=1;
-                return sc->NIL;
-            }
-        }
-        if (sc->fcells < n) {
-            /* If all fail, report failure */
-            sc->no_memory=1;
-            return sc->NIL;
-        }
-    }
-    return (sc->T);
 }
 
 static pointer get_consecutive_cells(scheme *sc, int n) {
@@ -2554,6 +2527,7 @@ static void new_slot_in_env(scheme *sc, pointer variable, pointer value)
 
 static void set_slot_in_env(scheme *sc, pointer slot, pointer value)
 {
+  (void)sc;
   cdr(slot) = value;
 }
 
@@ -4500,7 +4474,10 @@ static pointer opexe_6(scheme *sc, enum scheme_opcodes op) {
 typedef pointer (*dispatch_func)(scheme *, enum scheme_opcodes);
 
 typedef int (*test_predicate)(pointer);
-static int is_any(pointer p) { return 1;}
+static int is_any(pointer p) {
+  (void)p;
+  return 1;
+}
 
 static int is_nonneg(pointer p) {
   return ivalue(p)>=0 && is_integer(p);
