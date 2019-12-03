@@ -34,10 +34,6 @@
  */
 #define USE_SCHEME_STACK
 
-#ifndef USE_CHAR_CLASSIFIERS /* If char classifiers are needed */
-#define USE_CHAR_CLASSIFIERS 1
-#endif
-
 #ifndef USE_ASCII_NAMES /* If extended escaped characters are needed */
 #define USE_ASCII_NAMES 1
 #endif
@@ -537,13 +533,11 @@ void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 #define cadddr(p) car(cdr(cdr(cdr(p))))
 #define cddddr(p) cdr(cdr(cdr(cdr(p))))
 
-#if USE_CHAR_CLASSIFIERS
 static int Cisalpha(int c) { return isascii(c) && isalpha(c); }
 static int Cisdigit(int c) { return isascii(c) && isdigit(c); }
 static int Cisspace(int c) { return isascii(c) && isspace(c); }
 static int Cisupper(int c) { return isascii(c) && isupper(c); }
 static int Cislower(int c) { return isascii(c) && islower(c); }
-#endif
 
 #if USE_ASCII_NAMES
 static const char *charnames[32] = { "nul", "soh", "stx", "etx", "eot", "enq",
@@ -3863,7 +3857,6 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
         s_retbool(is_number(car(sc->args))); /* All numbers are real */
     case OP_CHARP: /* char? */
         s_retbool(is_character(car(sc->args)));
-#if USE_CHAR_CLASSIFIERS
     case OP_CHARAP: /* char-alphabetic? */
         s_retbool(Cisalpha(ivalue(car(sc->args))));
     case OP_CHARNP: /* char-numeric? */
@@ -3874,7 +3867,6 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
         s_retbool(Cisupper(ivalue(car(sc->args))));
     case OP_CHARLP: /* char-lower-case? */
         s_retbool(Cislower(ivalue(car(sc->args))));
-#endif
     case OP_PORTP: /* port? */
         s_retbool(is_port(car(sc->args)));
     case OP_INPORTP: /* input-port? */
