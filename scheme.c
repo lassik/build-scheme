@@ -48,10 +48,6 @@
 #define USE_COLON_HOOK 1
 #endif
 
-#ifndef STDIO_ADDS_CR /* Define if DOS/Windows */
-#define STDIO_ADDS_CR 0
-#endif
-
 #ifndef SHOW_ERROR_LINE /* Show error line in file */
 #define SHOW_ERROR_LINE 1
 #endif
