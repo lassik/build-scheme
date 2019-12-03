@@ -42,15 +42,9 @@
 # ifndef USE_STRLWR
 #   define USE_STRLWR 1
 # endif
-# define SCHEME_EXPORT
 #else
 # define USE_STRCASECMP 0
 # define USE_STRLWR 0
-# ifdef _SCHEME_SOURCE
-#  define SCHEME_EXPORT __declspec(dllexport)
-# else
-#  define SCHEME_EXPORT __declspec(dllimport)
-# endif
 #endif
 
 #if USE_NO_FEATURES
@@ -133,23 +127,23 @@ typedef struct num {
      } value;
 } num;
 
-SCHEME_EXPORT scheme *scheme_init_new();
-SCHEME_EXPORT scheme *scheme_init_new_custom_alloc(func_alloc malloc, func_dealloc free);
-SCHEME_EXPORT int scheme_init(scheme *sc);
-SCHEME_EXPORT int scheme_init_custom_alloc(scheme *sc, func_alloc, func_dealloc);
-SCHEME_EXPORT void scheme_deinit(scheme *sc);
+scheme *scheme_init_new();
+scheme *scheme_init_new_custom_alloc(func_alloc malloc, func_dealloc free);
+int scheme_init(scheme *sc);
+int scheme_init_custom_alloc(scheme *sc, func_alloc, func_dealloc);
+void scheme_deinit(scheme *sc);
 void scheme_set_input_port_file(scheme *sc, FILE *fin);
 void scheme_set_input_port_string(scheme *sc, char *start, char *past_the_end);
-SCHEME_EXPORT void scheme_set_output_port_file(scheme *sc, FILE *fin);
+void scheme_set_output_port_file(scheme *sc, FILE *fin);
 void scheme_set_output_port_string(scheme *sc, char *start, char *past_the_end);
-SCHEME_EXPORT void scheme_load_file(scheme *sc, FILE *fin);
-SCHEME_EXPORT void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename);
-SCHEME_EXPORT void scheme_load_string(scheme *sc, const char *cmd);
-SCHEME_EXPORT pointer scheme_apply0(scheme *sc, const char *procname);
-SCHEME_EXPORT pointer scheme_call(scheme *sc, pointer func, pointer args);
-SCHEME_EXPORT pointer scheme_eval(scheme *sc, pointer obj);
+void scheme_load_file(scheme *sc, FILE *fin);
+void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename);
+void scheme_load_string(scheme *sc, const char *cmd);
+pointer scheme_apply0(scheme *sc, const char *procname);
+pointer scheme_call(scheme *sc, pointer func, pointer args);
+pointer scheme_eval(scheme *sc, pointer obj);
 void scheme_set_external_data(scheme *sc, void *p);
-SCHEME_EXPORT void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
+void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
 
 typedef pointer (*foreign_func)(scheme *, pointer);
 
@@ -525,7 +519,7 @@ INTERFACE pointer set_cdr(pointer p, pointer q) { return cdr(p)=q; }
 INTERFACE INLINE int is_symbol(pointer p)   { return (type(p)==T_SYMBOL); }
 INTERFACE INLINE char *symname(pointer p)   { return strvalue(car(p)); }
 #if USE_PLIST
-SCHEME_EXPORT INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
+INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
 #define symprop(p)       cdr(p)
 #endif
 
