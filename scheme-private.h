@@ -1,15 +1,5 @@
-/* scheme-private.h */
-
-#ifndef _SCHEME_PRIVATE_H
-#define _SCHEME_PRIVATE_H
-
-#include "scheme.h"
 /*------------------ Ugly internals -----------------------------------*/
 /*------------------ Of interest only to FFI users --------------------*/
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 enum scheme_port_kind {
   port_free=0,
@@ -196,15 +186,3 @@ int is_promise(pointer p);
 int is_environment(pointer p);
 int is_immutable(pointer p);
 void setimmutable(pointer p);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-
-/*
-Local variables:
-c-file-style: "k&r"
-End:
-*/

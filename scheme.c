@@ -12,6 +12,10 @@
  *
  */
 
+#include <stdio.h>
+
+#include "scheme.h"
+
 #define _SCHEME_SOURCE
 #include "scheme-private.h"
 #ifndef WIN32
@@ -4533,79 +4537,6 @@ static int syntaxnum(pointer p) {
      }
 }
 
-/* initialization of TinyScheme */
-#if USE_INTERFACE
-INTERFACE static pointer s_cons(scheme *sc, pointer a, pointer b) {
- return cons(sc,a,b);
-}
-INTERFACE static pointer s_immutable_cons(scheme *sc, pointer a, pointer b) {
- return immutable_cons(sc,a,b);
-}
-
-static struct scheme_interface vtbl ={
-  scheme_define,
-  s_cons,
-  s_immutable_cons,
-  reserve_cells,
-  mk_integer,
-  mk_real,
-  mk_symbol,
-  gensym,
-  mk_string,
-  mk_counted_string,
-  mk_character,
-  mk_vector,
-  mk_foreign_func,
-  putstr,
-  putcharacter,
-
-  is_string,
-  string_value,
-  is_number,
-  nvalue,
-  ivalue,
-  rvalue,
-  is_integer,
-  is_real,
-  is_character,
-  charvalue,
-  is_list,
-  is_vector,
-  list_length,
-  ivalue,
-  fill_vector,
-  vector_elem,
-  set_vector_elem,
-  is_port,
-  is_pair,
-  pair_car,
-  pair_cdr,
-  set_car,
-  set_cdr,
-
-  is_symbol,
-  symname,
-
-  is_syntax,
-  is_proc,
-  is_foreign,
-  syntaxname,
-  is_closure,
-  is_macro,
-  closure_code,
-  closure_env,
-
-  is_continuation,
-  is_promise,
-  is_environment,
-  is_immutable,
-  setimmutable,
-
-  scheme_load_file,
-  scheme_load_string
-};
-#endif
-
 scheme *scheme_init_new() {
   scheme *sc=(scheme*)malloc(sizeof(scheme));
   if(!scheme_init(sc)) {
@@ -4640,9 +4571,6 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   num_one.is_fixnum=1;
   num_one.value.ivalue=1;
 
-#if USE_INTERFACE
-  sc->vptr=&vtbl;
-#endif
   sc->gensym_cnt=0;
   sc->malloc=malloc;
   sc->free=free;
