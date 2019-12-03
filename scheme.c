@@ -34,10 +34,6 @@
  */
 #define USE_SCHEME_STACK
 
-#ifndef USE_STRING_PORTS /* Enable string ports */
-#define USE_STRING_PORTS 1
-#endif
-
 #ifndef USE_TRACING
 #define USE_TRACING 1
 #endif
@@ -4051,7 +4047,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         s_return(sc, p);
     }
 
-#if USE_STRING_PORTS
     case OP_OPEN_INSTRING: /* open-input-string */
     case OP_OPEN_INOUTSTRING: /* open-input-output-string */ {
         int prop = 0;
@@ -4109,7 +4104,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         }
         s_return(sc, sc->F);
     }
-#endif
 
     case OP_CLOSE_INPORT: /* close-input-port */
         port_close(sc, car(sc->args), port_input);

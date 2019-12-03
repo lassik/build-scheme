@@ -140,12 +140,10 @@
     _OP_DEF(opexe_4, "open-input-file",                1,  1,       TST_STRING,                      OP_OPEN_INFILE      )
     _OP_DEF(opexe_4, "open-output-file",               1,  1,       TST_STRING,                      OP_OPEN_OUTFILE     )
     _OP_DEF(opexe_4, "open-input-output-file",         1,  1,       TST_STRING,                      OP_OPEN_INOUTFILE   )
-#if USE_STRING_PORTS
     _OP_DEF(opexe_4, "open-input-string",              1,  1,       TST_STRING,                      OP_OPEN_INSTRING    )
     _OP_DEF(opexe_4, "open-input-output-string",       1,  1,       TST_STRING,                      OP_OPEN_INOUTSTRING )
     _OP_DEF(opexe_4, "open-output-string",             0,  1,       TST_STRING,                      OP_OPEN_OUTSTRING   )
     _OP_DEF(opexe_4, "get-output-string",              1,  1,       TST_OUTPORT,                     OP_GET_OUTSTRING    )
-#endif
     _OP_DEF(opexe_4, "close-input-port",               1,  1,       TST_INPORT,                      OP_CLOSE_INPORT     )
     _OP_DEF(opexe_4, "close-output-port",              1,  1,       TST_OUTPORT,                     OP_CLOSE_OUTPORT    )
     _OP_DEF(opexe_4, "interaction-environment",        0,  0,       0,                               OP_INT_ENV          )
