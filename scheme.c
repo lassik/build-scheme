@@ -27,16 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if USE_NO_FEATURES
-# define USE_CHAR_CLASSIFIERS 0
-# define USE_ASCII_NAMES 0
-# define USE_STRING_PORTS 0
-# define USE_ERROR_HOOK 0
-# define USE_TRACING 0
-# define USE_COLON_HOOK 0
-# define USE_PLIST 0
-#endif
-
 /*
  * Leave it defined if you want continuations, and also for the Sharp Zaurus.
  * Undefine it if you only care about faster speed and not strict Scheme compatibility.
