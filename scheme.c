@@ -38,10 +38,6 @@
 #define USE_TRACING 1
 #endif
 
-#ifndef USE_PLIST
-#define USE_PLIST 0
-#endif
-
 /* To force system errors through user-defined error handling (see
  * *error-hook*) */
 #ifndef USE_ERROR_HOOK
@@ -476,10 +472,6 @@ pointer set_cdr(pointer p, pointer q) { return cdr(p) = q; }
 
 int is_symbol(pointer p) { return (type(p) == T_SYMBOL); }
 char *symname(pointer p) { return strvalue(car(p)); }
-#if USE_PLIST
-int hasprop(pointer p) { return (typeflag(p) & T_SYMBOL); }
-#define symprop(p) cdr(p)
-#endif
 
 int is_syntax(pointer p) { return (typeflag(p) & T_SYNTAX); }
 int is_proc(pointer p) { return (type(p) == T_PROC); }
@@ -3956,40 +3948,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 
         s_return(sc, reverse_in_place(sc, car(y), x));
 
-#if USE_PLIST
-    case OP_PUT: /* put */
-        if (!hasprop(car(sc->args)) || !hasprop(cadr(sc->args))) {
-            Error_0(sc, "illegal use of put");
-        }
-        for (x = symprop(car(sc->args)), y = cadr(sc->args); x != sc->NIL;
-             x = cdr(x)) {
-            if (caar(x) == y) {
-                break;
-            }
-        }
-        if (x != sc->NIL)
-            cdar(x) = caddr(sc->args);
-        else
-            symprop(car(sc->args)) = cons(
-                sc, cons(sc, y, caddr(sc->args)), symprop(car(sc->args)));
-        s_return(sc, sc->T);
-
-    case OP_GET: /* get */
-        if (!hasprop(car(sc->args)) || !hasprop(cadr(sc->args))) {
-            Error_0(sc, "illegal use of get");
-        }
-        for (x = symprop(car(sc->args)), y = cadr(sc->args); x != sc->NIL;
-             x = cdr(x)) {
-            if (caar(x) == y) {
-                break;
-            }
-        }
-        if (x != sc->NIL) {
-            s_return(sc, cdar(x));
-        } else {
-            s_return(sc, sc->NIL);
-        }
-#endif /* USE_PLIST */
     case OP_QUIT: /* quit */
         if (is_pair(sc->args)) {
             sc->retcode = ivalue(car(sc->args));
