@@ -12,20 +12,12 @@
  *
  */
 
-#ifndef USE_MATH         /* If math support is needed */
-# define USE_MATH 1
-#endif
-
 #ifndef WIN32
 #include <unistd.h>
 #endif
 
 #ifdef WIN32
 #define snprintf _snprintf
-#endif
-
-#if USE_MATH
-#include <math.h>
 #endif
 
 #if USE_STRCASECMP
@@ -62,7 +54,6 @@
 #endif
 
 #if USE_NO_FEATURES
-# define USE_MATH 0
 # define USE_CHAR_CLASSIFIERS 0
 # define USE_ASCII_NAMES 0
 # define USE_STRING_PORTS 0
@@ -474,9 +465,6 @@ static int num_ge(num a, num b);
 static int num_lt(num a, num b);
 static int num_le(num a, num b);
 
-#if USE_MATH
-static double round_per_R5RS(double x);
-#endif
 static int is_zero_double(double x);
 static INLINE int num_is_integer(pointer p) {
   return ((p)->_object._number.is_fixnum);
@@ -839,27 +827,6 @@ static int num_lt(num a, num b) {
 static int num_le(num a, num b) {
  return !num_gt(a,b);
 }
-
-#if USE_MATH
-/* Round to nearest. Round to even if midway */
-static double round_per_R5RS(double x) {
- double fl=floor(x);
- double ce=ceil(x);
- double dfl=x-fl;
- double dce=ce-x;
- if(dfl>dce) {
-     return ce;
- } else if(dfl<dce) {
-     return fl;
- } else {
-     if(fmod(fl,2.0)==0.0) {       /* I imagine this holds */
-          return fl;
-     } else {
-          return ce;
-     }
- }
-}
-#endif
 
 static int is_zero_double(double x) {
  return x<DBL_MIN && x>-DBL_MIN;
@@ -3423,117 +3390,8 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
 static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      pointer x;
      num v;
-#if USE_MATH
-     double dd;
-#endif
 
      switch (op) {
-#if USE_MATH
-     case OP_INEX2EX:    /* inexact->exact */
-          x=car(sc->args);
-          if(num_is_integer(x)) {
-               s_return(sc,x);
-          } else if(modf(rvalue_unchecked(x),&dd)==0.0) {
-               s_return(sc,mk_integer(sc,ivalue(x)));
-          } else {
-               Error_1(sc,"inexact->exact: not integral:",x);
-          }
-
-     case OP_EXP:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, exp(rvalue(x))));
-
-     case OP_LOG:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, log(rvalue(x))));
-
-     case OP_SIN:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, sin(rvalue(x))));
-
-     case OP_COS:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, cos(rvalue(x))));
-
-     case OP_TAN:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, tan(rvalue(x))));
-
-     case OP_ASIN:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, asin(rvalue(x))));
-
-     case OP_ACOS:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, acos(rvalue(x))));
-
-     case OP_ATAN:
-          x=car(sc->args);
-          if(cdr(sc->args)==sc->NIL) {
-               s_return(sc, mk_real(sc, atan(rvalue(x))));
-          } else {
-               pointer y=cadr(sc->args);
-               s_return(sc, mk_real(sc, atan2(rvalue(x),rvalue(y))));
-          }
-
-     case OP_SQRT:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, sqrt(rvalue(x))));
-
-     case OP_EXPT: {
-          double result;
-          int real_result=1;
-          pointer y=cadr(sc->args);
-          x=car(sc->args);
-          if (num_is_integer(x) && num_is_integer(y))
-             real_result=0;
-          /* This 'if' is an R5RS compatibility fix. */
-          /* NOTE: Remove this 'if' fix for R6RS.    */
-          if (rvalue(x) == 0 && rvalue(y) < 0) {
-             result = 0.0;
-          } else {
-             result = pow(rvalue(x),rvalue(y));
-          }
-          /* Before returning integer result make sure we can. */
-          /* If the test fails, result is too big for integer. */
-          if (!real_result)
-          {
-            long result_as_long = (long)result;
-            if (result != (double)result_as_long)
-              real_result = 1;
-          }
-          if (real_result) {
-             s_return(sc, mk_real(sc, result));
-          } else {
-             s_return(sc, mk_integer(sc, result));
-          }
-     }
-
-     case OP_FLOOR:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, floor(rvalue(x))));
-
-     case OP_CEILING:
-          x=car(sc->args);
-          s_return(sc, mk_real(sc, ceil(rvalue(x))));
-
-     case OP_TRUNCATE : {
-          double rvalue_of_x ;
-          x=car(sc->args);
-          rvalue_of_x = rvalue(x) ;
-          if (rvalue_of_x > 0) {
-            s_return(sc, mk_real(sc, floor(rvalue_of_x)));
-          } else {
-            s_return(sc, mk_real(sc, ceil(rvalue_of_x)));
-          }
-     }
-
-     case OP_ROUND:
-        x=car(sc->args);
-        if (num_is_integer(x))
-            s_return(sc, x);
-        s_return(sc, mk_real(sc, round_per_R5RS(rvalue(x))));
-#endif
 
      case OP_ADD:        /* + */
        v=num_zero;
