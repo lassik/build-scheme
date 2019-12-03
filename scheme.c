@@ -12,7 +12,35 @@
  *
  */
 
+#ifndef USE_MATH         /* If math support is needed */
+# define USE_MATH 1
+#endif
+
+#ifndef WIN32
+#include <unistd.h>
+#endif
+
+#ifdef WIN32
+#define snprintf _snprintf
+#endif
+
+#if USE_MATH
+#include <math.h>
+#endif
+
+#if USE_STRCASECMP
+#include <strings.h>
+#ifndef __APPLE__
+#define stricmp strcasecmp
+#endif
+#endif
+
+#include <ctype.h>
+#include <float.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*
  * Default values for #define'd symbols
@@ -54,11 +82,6 @@
  * Undefine it if you only care about faster speed and not strict Scheme compatibility.
  */
 #define USE_SCHEME_STACK
-
-
-#ifndef USE_MATH         /* If math support is needed */
-# define USE_MATH 1
-#endif
 
 #ifndef USE_CHAR_CLASSIFIERS  /* If char classifiers are needed */
 # define USE_CHAR_CLASSIFIERS 1
@@ -346,27 +369,6 @@ int is_environment(pointer p);
 int is_immutable(pointer p);
 void setimmutable(pointer p);
 
-#ifndef WIN32
-# include <unistd.h>
-#endif
-#ifdef WIN32
-#define snprintf _snprintf
-#endif
-#if USE_MATH
-# include <math.h>
-#endif
-
-#include <limits.h>
-#include <float.h>
-#include <ctype.h>
-
-#if USE_STRCASECMP
-#include <strings.h>
-# ifndef __APPLE__
-#  define stricmp strcasecmp
-# endif
-#endif
-
 /* Used for documentation purposes, to signal functions in 'interface' */
 #define INTERFACE
 
@@ -393,9 +395,6 @@ void setimmutable(pointer p);
  */
 
 #define banner "TinyScheme 1.41"
-
-#include <string.h>
-#include <stdlib.h>
 
 #ifdef __APPLE__
 static int stricmp(const char *s1, const char *s2)
