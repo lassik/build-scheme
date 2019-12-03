@@ -13,6 +13,8 @@
  */
 
 #ifndef WIN32
+#include <sys/stat.h>
+
 #include <unistd.h>
 #endif
 
@@ -2692,6 +2694,16 @@ static void s_save(
 static void dump_stack_mark(scheme *sc) { mark(sc->dump); }
 #endif
 
+static pointer
+prim_create_directory(scheme *sc, const char *path, int mode)
+{
+     if (mkdir(path, mode) == -1) {
+          Error_1(sc, "create-directory: ",
+                  car(sc->args));
+     }
+     return sc->T;
+}
+
 #define s_retbool(tf) s_return(sc, (tf) ? sc->T : sc->F)
 
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
@@ -3690,6 +3702,11 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
 
         set_vector_elem(car(sc->args), index, caddr(sc->args));
         s_return(sc, car(sc->args));
+    }
+
+    case OP_CREATE_DIRECTORY: {
+         s_return(sc, prim_create_directory(sc,
+                                            strvalue(car(sc->args)), ivalue(cadr(sc->args))));
     }
 
     default:
