@@ -34,10 +34,6 @@
  */
 #define USE_SCHEME_STACK
 
-#ifndef USE_ASCII_NAMES /* If extended escaped characters are needed */
-#define USE_ASCII_NAMES 1
-#endif
-
 #ifndef USE_STRING_PORTS /* Enable string ports */
 #define USE_STRING_PORTS 1
 #endif
@@ -538,30 +534,6 @@ static int Cisdigit(int c) { return isascii(c) && isdigit(c); }
 static int Cisspace(int c) { return isascii(c) && isspace(c); }
 static int Cisupper(int c) { return isascii(c) && isupper(c); }
 static int Cislower(int c) { return isascii(c) && islower(c); }
-
-#if USE_ASCII_NAMES
-static const char *charnames[32] = { "nul", "soh", "stx", "etx", "eot", "enq",
-    "ack", "bel", "bs", "ht", "lf", "vt", "ff", "cr", "so", "si", "dle",
-    "dc1", "dc2", "dc3", "dc4", "nak", "syn", "etb", "can", "em", "sub",
-    "esc", "fs", "gs", "rs", "us" };
-
-static int is_ascii_name(const char *name, int *pc)
-{
-    int i;
-    for (i = 0; i < 32; i++) {
-        if (our_stricmp(name, charnames[i]) == 0) {
-            *pc = i;
-            return 1;
-        }
-    }
-    if (our_stricmp(name, "del") == 0) {
-        *pc = 127;
-        return 1;
-    }
-    return 0;
-}
-
-#endif
 
 static int file_push(scheme *sc, const char *fname);
 static void file_pop(scheme *sc);
@@ -1397,10 +1369,6 @@ static pointer mk_sharp_const(scheme *sc, char *name)
             } else {
                 return sc->NIL;
             }
-#if USE_ASCII_NAMES
-        } else if (is_ascii_name(name + 1, &c)) {
-            /* nothing */
-#endif
         } else if (name[2] == 0) {
             c = name[1];
         } else {
@@ -2249,21 +2217,11 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
                 snprintf(p, STRBUFFSIZE, "#\\tab");
                 break;
             default:
-#if USE_ASCII_NAMES
-                if (c == 127) {
-                    snprintf(p, STRBUFFSIZE, "#\\del");
-                    break;
-                } else if (c < 32) {
-                    snprintf(p, STRBUFFSIZE, "#\\%s", charnames[c]);
-                    break;
-                }
-#else
                 if (c < 32) {
                     snprintf(p, STRBUFFSIZE, "#\\x%x", c);
                     break;
                     break;
                 }
-#endif
                 snprintf(p, STRBUFFSIZE, "#\\%c", c);
                 break;
                 break;
