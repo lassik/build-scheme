@@ -20,32 +20,12 @@
 #define snprintf _snprintf
 #endif
 
-#if USE_STRCASECMP
-#include <strings.h>
-#ifndef __APPLE__
-#define stricmp strcasecmp
-#endif
-#endif
-
 #include <ctype.h>
 #include <float.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/*
- * Default values for #define'd symbols
- */
-#ifndef _MSC_VER
-# define USE_STRCASECMP 1
-# ifndef USE_STRLWR
-#   define USE_STRLWR 1
-# endif
-#else
-# define USE_STRCASECMP 0
-# define USE_STRLWR 0
-#endif
 
 #if USE_NO_FEATURES
 # define USE_CHAR_CLASSIFIERS 0
@@ -90,14 +70,6 @@
 
 #ifndef USE_COLON_HOOK   /* Enable qualified qualifier */
 # define USE_COLON_HOOK 1
-#endif
-
-#ifndef USE_STRCASECMP   /* stricmp for Unix */
-# define USE_STRCASECMP 0
-#endif
-
-#ifndef USE_STRLWR
-# define USE_STRLWR 1
 #endif
 
 #ifndef STDIO_ADDS_CR    /* Define if DOS/Windows */
@@ -369,8 +341,7 @@ void setimmutable(pointer p);
 
 #define banner "TinyScheme 1.41"
 
-#ifdef __APPLE__
-static int stricmp(const char *s1, const char *s2)
+static int our_stricmp(const char *s1, const char *s2)
 {
   unsigned char c1, c2;
   do {
@@ -384,10 +355,8 @@ static int stricmp(const char *s1, const char *s2)
   } while (c1 != 0);
   return 0;
 }
-#endif /* __APPLE__ */
 
-#if USE_STRLWR
-static const char *strlwr(char *s) {
+static const char *our_strlwr(char *s) {
   const char *p=s;
   while(*s) {
     *s=tolower(*s);
@@ -395,7 +364,6 @@ static const char *strlwr(char *s) {
   }
   return p;
 }
-#endif
 
 #ifndef prompt
 # define prompt "ts> "
@@ -607,12 +575,12 @@ static const char *charnames[32]={
 static int is_ascii_name(const char *name, int *pc) {
   int i;
   for(i=0; i<32; i++) {
-     if(stricmp(name,charnames[i])==0) {
+     if(our_stricmp(name,charnames[i])==0) {
           *pc=i;
           return 1;
      }
   }
-  if(stricmp(name,"del")==0) {
+  if(our_stricmp(name,"del")==0) {
      *pc=127;
      return 1;
   }
@@ -1101,7 +1069,7 @@ static pointer oblist_find_by_name(scheme *sc, const char *name)
   for (x = vector_elem(sc->oblist, location); x != sc->NIL; x = cdr(x)) {
     s = symname(car(x));
     /* case-insensitive, per R5RS section 2. */
-    if(stricmp(name, s) == 0) {
+    if(our_stricmp(name, s) == 0) {
       return car(x);
     }
   }
@@ -1137,7 +1105,7 @@ static pointer oblist_find_by_name(scheme *sc, const char *name)
      for (x = sc->oblist; x != sc->NIL; x = cdr(x)) {
         s = symname(car(x));
         /* case-insensitive, per R5RS section 2. */
-        if(stricmp(name, s) == 0) {
+        if(our_stricmp(name, s) == 0) {
           return car(x);
         }
      }
@@ -1334,7 +1302,7 @@ static pointer mk_atom(scheme *sc, char *q) {
                               cons(sc,
                                    sc->QUOTE,
                                    cons(sc, mk_atom(sc,p+2), sc->NIL)),
-                              cons(sc, mk_symbol(sc,strlwr(q)), sc->NIL)));
+                              cons(sc, mk_symbol(sc,our_strlwr(q)), sc->NIL)));
      }
 #endif
 
@@ -1347,16 +1315,16 @@ static pointer mk_atom(scheme *sc, char *q) {
          c = *p++;
        }
        if (!isdigit(c)) {
-         return (mk_symbol(sc, strlwr(q)));
+         return (mk_symbol(sc, our_strlwr(q)));
        }
      } else if (c == '.') {
        has_dec_point=1;
        c = *p++;
        if (!isdigit(c)) {
-         return (mk_symbol(sc, strlwr(q)));
+         return (mk_symbol(sc, our_strlwr(q)));
        }
      } else if (!isdigit(c)) {
-       return (mk_symbol(sc, strlwr(q)));
+       return (mk_symbol(sc, our_strlwr(q)));
      }
 
      for ( ; (c = *p) != 0; ++p) {
@@ -1377,7 +1345,7 @@ static pointer mk_atom(scheme *sc, char *q) {
                           }
                        }
                }
-               return (mk_symbol(sc, strlwr(q)));
+               return (mk_symbol(sc, our_strlwr(q)));
           }
      }
      if(has_dec_point) {
@@ -1411,13 +1379,13 @@ static pointer mk_sharp_const(scheme *sc, char *name) {
           return (mk_integer(sc, x));
      } else if (*name == '\\') { /* #\w (character) */
           int c=0;
-          if(stricmp(name+1,"space")==0) {
+          if(our_stricmp(name+1,"space")==0) {
                c=' ';
-          } else if(stricmp(name+1,"newline")==0) {
+          } else if(our_stricmp(name+1,"newline")==0) {
                c='\n';
-          } else if(stricmp(name+1,"return")==0) {
+          } else if(our_stricmp(name+1,"return")==0) {
                c='\r';
-          } else if(stricmp(name+1,"tab")==0) {
+          } else if(our_stricmp(name+1,"tab")==0) {
                c='\t';
      } else if(name[1]=='x' && name[2]!=0) {
           int c1=0;
