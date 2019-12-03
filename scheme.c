@@ -45,10 +45,6 @@
 /*
  * Default values for #define'd symbols
  */
-#ifndef STANDALONE       /* If used as standalone interpreter */
-# define STANDALONE 1
-#endif
-
 #ifndef _MSC_VER
 # define USE_STRCASECMP 1
 # ifndef USE_STRLWR
@@ -73,7 +69,6 @@
 # define USE_ERROR_HOOK 0
 # define USE_TRACING 0
 # define USE_COLON_HOOK 0
-# define USE_DL 0
 # define USE_PLIST 0
 #endif
 
@@ -5113,89 +5108,6 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value) {
      }
 }
 
-#if !STANDALONE
-void scheme_register_foreign_func(scheme * sc, scheme_registerable * sr)
-{
-  scheme_define(sc,
-                sc->global_env,
-                mk_symbol(sc,sr->name),
-                mk_foreign_func(sc, sr->f));
-}
-
-void scheme_register_foreign_func_list(scheme * sc,
-                                       scheme_registerable * list,
-                                       int count)
-{
-  int i;
-  for(i = 0; i < count; i++)
-    {
-      scheme_register_foreign_func(sc, list + i);
-    }
-}
-
-pointer scheme_apply0(scheme *sc, const char *procname)
-{ return scheme_eval(sc, cons(sc,mk_symbol(sc,procname),sc->NIL)); }
-
-void save_from_C_call(scheme *sc)
-{
-  pointer saved_data =
-    cons(sc,
-         car(sc->sink),
-         cons(sc,
-              sc->envir,
-              sc->dump));
-  /* Push */
-  sc->c_nest = cons(sc, saved_data, sc->c_nest);
-  /* Truncate the dump stack so TS will return here when done, not
-     directly resume pre-C-call operations. */
-  dump_stack_reset(sc);
-}
-void restore_from_C_call(scheme *sc)
-{
-  car(sc->sink) = caar(sc->c_nest);
-  sc->envir = cadar(sc->c_nest);
-  sc->dump = cdr(cdar(sc->c_nest));
-  /* Pop */
-  sc->c_nest = cdr(sc->c_nest);
-}
-
-/* "func" and "args" are assumed to be already eval'ed. */
-pointer scheme_call(scheme *sc, pointer func, pointer args)
-{
-  int old_repl = sc->interactive_repl;
-  sc->interactive_repl = 0;
-  save_from_C_call(sc);
-  sc->envir = sc->global_env;
-  sc->args = args;
-  sc->code = func;
-  sc->retcode = 0;
-  Eval_Cycle(sc, OP_APPLY);
-  sc->interactive_repl = old_repl;
-  restore_from_C_call(sc);
-  return sc->value;
-}
-
-pointer scheme_eval(scheme *sc, pointer obj)
-{
-  int old_repl = sc->interactive_repl;
-  sc->interactive_repl = 0;
-  save_from_C_call(sc);
-  sc->args = sc->NIL;
-  sc->code = obj;
-  sc->retcode = 0;
-  Eval_Cycle(sc, OP_EVAL);
-  sc->interactive_repl = old_repl;
-  restore_from_C_call(sc);
-  return sc->value;
-}
-
-
-#endif
-
-/* ========== Main ========== */
-
-#if STANDALONE
-
 #if defined(__APPLE__) && !defined (OSX)
 int main()
 {
@@ -5234,9 +5146,6 @@ int main(int argc, char **argv) {
   }
   scheme_set_input_port_file(&sc, stdin);
   scheme_set_output_port_file(&sc, stdout);
-#if USE_DL
-  scheme_define(&sc,sc.global_env,mk_symbol(&sc,"load-extension"),mk_foreign_func(&sc, scm_load_ext));
-#endif
   argv++;
   if(access(file_name,0)!=0) {
     char *p=getenv("TINYSCHEMEINIT");
@@ -5293,11 +5202,3 @@ int main(int argc, char **argv) {
 
   return retcode;
 }
-
-#endif
-
-/*
-Local variables:
-c-file-style: "k&r"
-End:
-*/
