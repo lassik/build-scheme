@@ -4856,6 +4856,52 @@ static pointer prim_set_file_mode(void)
     return _s_return(sc, sc->T);
 }
 
+static pointer prim_set_working_directory(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (chdir(path) == -1) {
+        return os_error("chdir");
+    }
+    return _s_return(sc, sc->T);
+}
+
+static pointer prim_working_directory(void)
+{
+    pointer string;
+    char *newbuf;
+    char *buf;
+    size_t cap;
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    buf = 0;
+    cap = 128;
+    for (;;) {
+        newbuf = realloc(buf, cap);
+        if (!newbuf) {
+            free(buf);
+            return sc->NIL;
+        }
+        buf = newbuf;
+        if (getcwd(buf, cap)) {
+            break;
+        }
+        if (errno != ERANGE) {
+            return os_error("getcwd");
+        }
+        cap *= 2;
+    }
+    string = mk_string(sc, buf);
+    free(buf);
+    return _s_return(sc, string);
+}
+
 static const struct primitive primitives[] = {
     { "create-directory", prim_create_directory },
     { "delete-directory", prim_delete_directory },
@@ -4871,6 +4917,8 @@ static const struct primitive primitives[] = {
     { "make-string", prim_make_string },
     { "set-environment-variable", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
+    { "set-working-directory", prim_set_working_directory },
+    { "working-directory", prim_working_directory },
 };
 
 static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
