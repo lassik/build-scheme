@@ -1357,7 +1357,7 @@ static pointer mk_sharp_const(scheme *sc, char *name)
         x = binary_decode(name + 1);
         return (mk_integer(sc, x));
     } else if (*name == '\\') { /* #\w (character) */
-        int c = 0;
+        int c;
         if (our_stricmp(name + 1, "space") == 0) {
             c = ' ';
         } else if (our_stricmp(name + 1, "newline") == 0) {
@@ -1532,7 +1532,7 @@ static void finalize_cell(scheme *sc, pointer a)
 
 static int file_push(scheme *sc, const char *fname)
 {
-    FILE *fin = NULL;
+    FILE *fin;
 
     if (sc->file_i == MAXFIL - 1)
         return 0;
@@ -1972,8 +1972,9 @@ static int is_one_of(char *s, int c)
 /* skip white characters */
 static int skipspace(scheme *sc)
 {
-    int c = 0, curr_line = 0;
+    int c, curr_line;
 
+    curr_line = 0;
     do {
         c = inchar(sc);
 #if SHOW_ERROR_LINE
@@ -2229,10 +2230,8 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
                 if (c < 32) {
                     snprintf(p, STRBUFFSIZE, "#\\x%x", c);
                     break;
-                    break;
                 }
                 snprintf(p, STRBUFFSIZE, "#\\%c", c);
-                break;
                 break;
             }
         }
@@ -3988,6 +3987,7 @@ static pointer os_file_info(const char *path, int follow)
     pointer err;
     wchar_t *wpath;
 
+    (void)follow;
     if ((err = utf8_to_wstring(path, &wpath))) {
         return err;
     }
