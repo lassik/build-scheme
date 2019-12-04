@@ -406,6 +406,8 @@ static num num_one;
 #define typeflag(p) ((p)->_flag)
 #define type(p) (typeflag(p) & T_MASKTYPE)
 
+static int is_boolean(pointer p) { return (p == sc->F) || (p == sc->T); }
+
 int is_string(pointer p) { return (type(p) == T_STRING); }
 #define strvalue(p) ((p)->_object._string._svalue)
 #define strlength(p) ((p)->_object._string._length)
@@ -514,12 +516,6 @@ void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 #define cadaar(p) car(cdr(car(car(p))))
 #define cadddr(p) car(cdr(cdr(cdr(p))))
 #define cddddr(p) cdr(cdr(cdr(cdr(p))))
-
-static int Cisalpha(int c) { return isascii(c) && isalpha(c); }
-static int Cisdigit(int c) { return isascii(c) && isdigit(c); }
-static int Cisspace(int c) { return isascii(c) && isspace(c); }
-static int Cisupper(int c) { return isascii(c) && isupper(c); }
-static int Cislower(int c) { return isascii(c) && islower(c); }
 
 static int file_push(scheme *sc, const char *fname);
 static void file_pop(scheme *sc);
@@ -3708,12 +3704,6 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
     switch (op) {
     case OP_NOT: /* not */
         s_retbool(is_false(car(sc->args)));
-    case OP_BOOLP: /* boolean? */
-        s_retbool(car(sc->args) == sc->F || car(sc->args) == sc->T);
-    case OP_EOFOBJP: /* boolean? */
-        s_retbool(car(sc->args) == sc->EOF_OBJ);
-    case OP_NULLP: /* null? */
-        s_retbool(car(sc->args) == sc->NIL);
     case OP_NUMEQ: /* = */
     case OP_LESS: /* < */
     case OP_GRE: /* > */
@@ -3747,51 +3737,6 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
             v = nvalue(car(x));
         }
         s_retbool(1);
-    case OP_SYMBOLP: /* symbol? */
-        s_retbool(is_symbol(car(sc->args)));
-    case OP_NUMBERP: /* number? */
-        s_retbool(is_number(car(sc->args)));
-    case OP_STRINGP: /* string? */
-        s_retbool(is_string(car(sc->args)));
-    case OP_INTEGERP: /* integer? */
-        s_retbool(is_integer(car(sc->args)));
-    case OP_REALP: /* real? */
-        s_retbool(is_number(car(sc->args))); /* All numbers are real */
-    case OP_CHARP: /* char? */
-        s_retbool(is_character(car(sc->args)));
-    case OP_CHARAP: /* char-alphabetic? */
-        s_retbool(Cisalpha(ivalue(car(sc->args))));
-    case OP_CHARNP: /* char-numeric? */
-        s_retbool(Cisdigit(ivalue(car(sc->args))));
-    case OP_CHARWP: /* char-whitespace? */
-        s_retbool(Cisspace(ivalue(car(sc->args))));
-    case OP_CHARUP: /* char-upper-case? */
-        s_retbool(Cisupper(ivalue(car(sc->args))));
-    case OP_CHARLP: /* char-lower-case? */
-        s_retbool(Cislower(ivalue(car(sc->args))));
-    case OP_PORTP: /* port? */
-        s_retbool(is_port(car(sc->args)));
-    case OP_INPORTP: /* input-port? */
-        s_retbool(is_inport(car(sc->args)));
-    case OP_OUTPORTP: /* output-port? */
-        s_retbool(is_outport(car(sc->args)));
-    case OP_PROCP: /* procedure? */
-        /*--
-         * continuation should be procedure by the example
-         * (call-with-current-continuation procedure?) ==> #t
-         * in R^3 report sec. 6.9
-         */
-        s_retbool(is_proc(car(sc->args)) || is_closure(car(sc->args))
-            || is_continuation(car(sc->args)));
-    case OP_PAIRP: /* pair? */
-        s_retbool(is_pair(car(sc->args)));
-    case OP_LISTP: /* list? */
-        s_retbool(list_length(sc, car(sc->args)) >= 0);
-
-    case OP_ENVP: /* environment? */
-        s_retbool(is_environment(car(sc->args)));
-    case OP_VECTORP: /* vector? */
-        s_retbool(is_vector(car(sc->args)));
     case OP_EQ: /* eq? */
         s_retbool(car(sc->args) == cadr(sc->args));
     case OP_EQV: /* eqv? */
@@ -4348,14 +4293,6 @@ static pointer opexe_6(scheme *sc, enum scheme_opcodes op)
         } else {
             s_return(sc, sc->F);
         }
-    case OP_CLOSUREP: /* closure? */
-        /*
-         * Note, macro object is also a closure.
-         * Therefore, (closure? <#MACRO>) ==> #t
-         */
-        s_retbool(is_closure(car(sc->args)));
-    case OP_MACROP: /* macro? */
-        s_retbool(is_macro(car(sc->args)));
     default:
         snprintf(sc->strbuff, STRBUFFSIZE, "%d: illegal operator", sc->op);
         Error_0(sc, sc->strbuff);
@@ -4572,6 +4509,14 @@ static pointer os_error(const char *syscall)
     return _Error_1(sc, strerror(errno), 0);
 }
 
+static pointer obj_predicate(int predicate(pointer))
+{
+    pointer x;
+
+    arg_obj(&x);
+    return arg_err() ? ARG_ERR : _s_return(sc, predicate(x) ? sc->T : sc->F);
+}
+
 // (append 'a)           => a
 // (append '() 'a)       => a
 // (append '(1) 'a)      => (1 . a)
@@ -4594,6 +4539,8 @@ static pointer prim_append(void)
     return _s_return(sc, reverse_in_place(sc, tail, newlist));
 }
 
+static pointer prim_boolean_p(void) { return obj_predicate(is_boolean); }
+
 static pointer prim_car(void)
 {
     pointer pair;
@@ -4609,6 +4556,12 @@ static pointer prim_cdr(void)
     arg_pair(&pair);
     return arg_err() ? ARG_ERR : _s_return(sc, cdr(pair));
 }
+
+static pointer prim_char_p(void) { return obj_predicate(is_character); }
+
+// Note, macro object is also a closure.
+// Therefore, (closure? <#MACRO>) ==> #t
+static pointer prim_closure_p(void) { return obj_predicate(is_closure); }
 
 static pointer prim_cons(void)
 {
@@ -4663,6 +4616,22 @@ static pointer prim_delete_file(void)
         return os_error("unlink");
     }
     return _s_return(sc, sc->T);
+}
+
+static pointer prim_environment_p(void)
+{
+    return obj_predicate(is_environment);
+}
+
+static pointer prim_eof_object_p(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(x == sc->EOF_OBJ);
 }
 
 #define arg_string_or_port arg_string
@@ -4776,6 +4745,10 @@ static pointer get_environment_variables(void)
     return _s_return(sc, head);
 }
 
+static pointer prim_input_port_p(void) { return obj_predicate(is_inport); }
+
+static pointer prim_integer_p(void) { return obj_predicate(is_integer); }
+
 static pointer prim_length(void)
 {
     pointer arg;
@@ -4792,6 +4765,19 @@ static pointer prim_length(void)
     return _s_return(sc, mk_integer(sc, n));
 }
 
+static pointer prim_list_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(list_length(sc, arg) >= 0);
+}
+
+static pointer prim_macro_p(void) { return obj_predicate(is_macro); }
+
 static pointer prim_make_string(void)
 {
     long len;
@@ -4805,6 +4791,47 @@ static pointer prim_make_string(void)
         return ARG_ERR;
     }
     return _s_return(sc, mk_empty_string(sc, len, fill));
+}
+
+static pointer prim_null_p(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(x == sc->NIL);
+}
+
+static pointer prim_number_p(void) { return obj_predicate(is_number); }
+
+static pointer prim_output_port_p(void) { return obj_predicate(is_outport); }
+
+static pointer prim_pair_p(void) { return obj_predicate(is_pair); }
+
+static pointer prim_port_p(void) { return obj_predicate(is_port); }
+
+static pointer prim_procedure_p(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    /*--
+     * continuation should be procedure by the example
+     * (call-with-current-continuation procedure?) ==> #t
+     * in R^3 report sec. 6.9
+     */
+    s_retbool(is_proc(x) || is_closure(x) || is_continuation(x));
+}
+
+static pointer prim_real_p(void)
+{
+    /* All numbers are real */
+    return obj_predicate(is_number);
 }
 
 static pointer prim_reverse(void)
@@ -4869,6 +4896,12 @@ static pointer prim_set_working_directory(void)
     return _s_return(sc, sc->T);
 }
 
+static pointer prim_string_p(void) { return obj_predicate(is_string); }
+
+static pointer prim_symbol_p(void) { return obj_predicate(is_symbol); }
+
+static pointer prim_vector_p(void) { return obj_predicate(is_vector); }
+
 static pointer prim_working_directory(void)
 {
     pointer string;
@@ -4903,12 +4936,17 @@ static pointer prim_working_directory(void)
 
 static const struct primitive primitives[] = {
     { "append", prim_append },
+    { "boolean?", prim_boolean_p },
     { "car", prim_car },
     { "cdr", prim_cdr },
+    { "char?", prim_char_p },
+    { "closure?", prim_closure_p },
     { "cons", prim_cons },
     { "create-directory", prim_create_directory },
     { "delete-directory", prim_delete_directory },
     { "delete-file", prim_delete_file },
+    { "environment?", prim_environment_p },
+    { "eof-object?", prim_eof_object_p },
     { "file-info", prim_file_info },
     { "file-info:gid", prim_file_info_gid },
     { "file-info:mode", prim_file_info_mode },
@@ -4917,12 +4955,26 @@ static const struct primitive primitives[] = {
     { "file-info?", prim_file_info_p },
     { "get-environment-variable", get_environment_variable },
     { "get-environment-variables", get_environment_variables },
+    { "input-port?", prim_input_port_p },
+    { "integer?", prim_integer_p },
     { "length", prim_length },
+    { "list?", prim_list_p },
+    { "macro?", prim_macro_p },
     { "make-string", prim_make_string },
+    { "null?", prim_null_p },
+    { "number?", prim_number_p },
+    { "output-port?", prim_output_port_p },
+    { "pair?", prim_pair_p },
+    { "port?", prim_port_p },
+    { "procedure?", prim_procedure_p },
+    { "real?", prim_real_p },
     { "reverse", prim_reverse },
     { "set-environment-variable", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
     { "set-working-directory", prim_set_working_directory },
+    { "string?", prim_string_p },
+    { "symbol?", prim_symbol_p },
+    { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
 };
 
