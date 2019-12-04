@@ -87,10 +87,7 @@ void scheme_load_string(scheme *sc, const char *cmd);
 pointer scheme_apply0(scheme *sc, const char *procname);
 pointer scheme_call(scheme *sc, pointer func, pointer args);
 pointer scheme_eval(scheme *sc, pointer obj);
-void scheme_set_external_data(scheme *sc, void *p);
 void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
-
-typedef pointer (*foreign_func)(scheme *, pointer);
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
 pointer mk_integer(scheme *sc, long num);
@@ -101,7 +98,6 @@ pointer mk_string(scheme *sc, const char *str);
 pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_empty_string(scheme *sc, int len, char fill);
 pointer mk_character(scheme *sc, int c);
-pointer mk_foreign_func(scheme *sc, foreign_func f);
 void putstr(scheme *sc, const char *s);
 int list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
@@ -147,7 +143,6 @@ struct cell {
         } _string;
         num _number;
         port *_port;
-        foreign_func _ff;
         struct {
             struct cell *_car;
             struct cell *_cdr;
@@ -236,7 +231,6 @@ struct scheme {
     pointer value;
     int op;
 
-    void *ext_data; /* For the benefit of foreign functions */
     long gensym_cnt;
 
     struct scheme_interface *vptr;
@@ -282,7 +276,6 @@ int hasprop(pointer p);
 
 int is_syntax(pointer p);
 int is_proc(pointer p);
-int is_foreign(pointer p);
 char *syntaxname(pointer p);
 int is_closure(pointer p);
 #ifdef USE_MACRO
@@ -366,15 +359,14 @@ enum scheme_types {
     T_PAIR = 5,
     T_CLOSURE = 6,
     T_CONTINUATION = 7,
-    T_FOREIGN = 8,
-    T_CHARACTER = 9,
-    T_PORT = 10,
-    T_VECTOR = 11,
-    T_MACRO = 12,
-    T_PROMISE = 13,
-    T_ENVIRONMENT = 14,
-    T_FILE_INFO = 15,
-    T_LAST_SYSTEM_TYPE = 15
+    T_CHARACTER = 8,
+    T_PORT = 9,
+    T_VECTOR = 10,
+    T_MACRO = 11,
+    T_PROMISE = 12,
+    T_ENVIRONMENT = 13,
+    T_FILE_INFO = 14,
+    T_LAST_SYSTEM_TYPE = 14
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -482,7 +474,6 @@ char *symname(pointer p) { return strvalue(car(p)); }
 
 int is_syntax(pointer p) { return (typeflag(p) & T_SYNTAX); }
 int is_proc(pointer p) { return (type(p) == T_PROC); }
-int is_foreign(pointer p) { return (type(p) == T_FOREIGN); }
 char *syntaxname(pointer p) { return strvalue(car(p)); }
 #define procnum(p) ivalue(p)
 static const char *procname(pointer x);
@@ -1099,15 +1090,6 @@ static pointer mk_opaque_type(enum scheme_types type_, void *p)
     typeflag(x) = T_ATOM | type_;
     x->_object._opaque._p = p;
     return x;
-}
-
-pointer mk_foreign_func(scheme *sc, foreign_func f)
-{
-    pointer x = get_cell(sc, sc->NIL, sc->NIL);
-
-    typeflag(x) = (T_FOREIGN | T_ATOM);
-    x->_object._ff = f;
-    return (x);
 }
 
 pointer mk_character(scheme *sc, int c)
@@ -2247,9 +2229,6 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
         p = "#<CLOSURE>";
     } else if (is_promise(l)) {
         p = "#<PROMISE>";
-    } else if (is_foreign(l)) {
-        p = sc->strbuff;
-        snprintf(p, STRBUFFSIZE, "#<FOREIGN PROCEDURE %ld>", procnum(l));
     } else if (is_continuation(l)) {
         p = "#<CONTINUATION>";
     } else {
@@ -2864,11 +2843,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
 #endif
         if (is_proc(sc->code)) {
             s_goto(sc, procnum(sc->code)); /* PROCEDURE */
-        } else if (is_foreign(sc->code)) {
-            /* Keep nested calls from GC'ing the arglist */
-            push_recent_alloc(sc, sc->args, sc->NIL);
-            x = sc->code->_object._ff(sc, sc->args);
-            s_return(sc, x);
         } else if (is_closure(sc->code) || is_macro(sc->code)
             || is_promise(sc->code)) { /* CLOSURE */
             /* Should not accept promise */
@@ -3834,7 +3808,7 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
          * in R^3 report sec. 6.9
          */
         s_retbool(is_proc(car(sc->args)) || is_closure(car(sc->args))
-            || is_continuation(car(sc->args)) || is_foreign(car(sc->args)));
+            || is_continuation(car(sc->args)));
     case OP_PAIRP: /* pair? */
         s_retbool(is_pair(car(sc->args)));
     case OP_LISTP: /* list? */
@@ -5253,8 +5227,6 @@ void scheme_set_output_port_string(
 {
     sc->outport = port_from_string(sc, start, past_the_end, port_output);
 }
-
-void scheme_set_external_data(scheme *sc, void *p) { sc->ext_data = p; }
 
 void scheme_deinit(scheme *sc)
 {
