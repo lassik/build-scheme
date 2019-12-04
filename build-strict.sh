@@ -1,2 +1,4 @@
 #!/bin/sh
-clang -Wall -Wextra -pedantic -std=c99 -Og -g -o scheme scheme.c -DOSX
+CC=${CC:-clang}
+CFLAGS=${CFLAGS:--Wall -Wextra -pedantic -std=c99 -Og -g}
+$CC $CFLAGS -o scheme scheme.c
