@@ -1,16 +1,11 @@
-/* T I N Y S C H E M E    1 . 4 1
- *   Dimitrios Souflis (dsouflis@acm.org)
- *   Based on MiniScheme (original credits follow)
- * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
- * (MINISCM)           E-MAIL :  moriwaki@kurims.kurims.kyoto-u.ac.jp
- * (MINISCM) This version has been modified by R.C. Secrist.
- * (MINISCM)
- * (MINISCM) Mini-Scheme is now maintained by Akira KIDA.
- * (MINISCM)
- * (MINISCM) This is a revised and modified version by Akira KIDA.
- * (MINISCM)    current version is 0.85k4 (15 May 1994)
- *
- */
+// scheme.c -- a useful Scheme interpreter in one C file
+//
+// Lineage:
+// - Mini-Scheme by Atsushi Moriwaki / kurims.kyoto-u.ac.jp (11/5/1989)
+// - Mini-Scheme modified by R.C. Secrist
+// - Mini-Scheme modified by Akira Kida (version 0.85k4, 1994-05-15)
+// - TinyScheme 1.41 by Dimitrios Souflis, Kevin Cozens, Jonathan S. Shapiro
+// - scheme.c by Lassi Kortela
 
 #ifndef WIN32
 #include <sys/stat.h>
