@@ -5085,6 +5085,20 @@ static pointer prim_eqv_p(void)
     s_retbool(eqv(a, b));
 }
 
+static pointer prim_exit(void)
+{
+    long ret = 0;
+
+    if (arg_left()) {
+        arg_long(&ret, 0, 255);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    sc->retcode = ret;
+    return sc->NIL;
+}
+
 #define arg_string_or_port arg_string
 
 static pointer prim_file_info(void)
@@ -5305,20 +5319,6 @@ static pointer prim_procedure_p(void)
     s_retbool(is_proc(x) || is_closure(x) || is_continuation(x));
 }
 
-static pointer prim_quit(void)
-{
-    long ret = 0;
-
-    if (arg_left()) {
-        arg_long(&ret, 0, 255);
-    }
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    sc->retcode = ret;
-    return sc->NIL;
-}
-
 static pointer prim_real_p(void)
 {
     /* All numbers are real */
@@ -5411,6 +5411,7 @@ static const struct primitive primitives[] = {
     { "eof-object?", prim_eof_object_p },
     { "eq?", prim_eq_p },
     { "eqv?", prim_eqv_p },
+    { "exit", prim_exit },
     { "file-info", prim_file_info },
     { "file-info:gid", prim_file_info_gid },
     { "file-info:mode", prim_file_info_mode },
@@ -5436,7 +5437,6 @@ static const struct primitive primitives[] = {
     { "pair?", prim_pair_p },
     { "port?", prim_port_p },
     { "procedure?", prim_procedure_p },
-    { "quit", prim_quit },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
     { "set-environment-variable", prim_set_environment_variable },
