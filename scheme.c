@@ -3729,6 +3729,19 @@ int list_length(scheme *sc, pointer a)
     }
 }
 
+static pointer env_cons(const char *s, pointer list)
+{
+    const char *eq;
+    pointer name, value;
+
+    if ((eq = strchr(s, '='))) {
+        name = mk_counted_string(sc, s, eq - s);
+        value = mk_string(sc, eq + 1);
+        list = cons(sc, cons(sc, name, value), list);
+    }
+    return list;
+}
+
 #ifdef SCHEME_WINDOWS
 static pointer wstring_to_utf8(const wchar_t *wstring, char **out_utf8)
 {
@@ -3798,6 +3811,47 @@ static pointer os_error(const char *syscall)
     }
     free(wstring);
     return _Error_1(sc, utf8, 0);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_get_environment_variables(void)
+{
+    pointer list;
+    char **sp;
+
+    list = sc->NIL;
+    for (sp = environ; *sp; sp++) {
+        list = env_cons(*sp, list);
+    }
+    return list;
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_get_environment_variables(void)
+{
+    pointer list, err;
+    const wchar_t *environment;
+    const wchar_t *w;
+    char *utf8;
+
+    list = sc->NIL;
+    if (!(w = environment = GetEnvironmentStringsW())) {
+        return os_error("GetEnvironmentStrings");
+    }
+    while (*w) {
+        if ((err = wstring_to_utf8(w, &utf8))) {
+            return err;
+        }
+        list = env_cons(utf8, list);
+        free(utf8);
+        for (; *w; w++)
+            ;
+        w++;
+    }
+    FreeEnvironmentStringsW(environment);
+    return list;
 }
 #endif
 
@@ -5115,7 +5169,7 @@ static pointer prim_gc_verbose(void)
     s_retbool(oldval);
 }
 
-static pointer get_environment_variable(void)
+static pointer prim_get_environment_variable(void)
 {
     const char *name;
     const char *value;
@@ -5128,31 +5182,13 @@ static pointer get_environment_variable(void)
     return _s_return(sc, value ? mk_string(sc, value) : sc->F);
 }
 
-static pointer get_environment_variables(void)
+static pointer prim_get_environment_variables(void)
 {
-    pointer head, tail, newtail, name, value;
-    char **sp;
-    const char *s;
-    const char *eq;
-
     if (arg_err()) {
         return ARG_ERR;
     }
-    head = tail = sc->NIL;
-    for (sp = environ; (s = *sp); sp++) {
-        eq = strchr(s, '=');
-        if (eq) {
-            name = mk_counted_string(sc, s, eq - s);
-            value = mk_string(sc, eq + 1);
-            newtail = cons(sc, cons(sc, name, value), sc->NIL);
-            set_cdr(tail, newtail);
-            tail = newtail;
-            if (head == sc->NIL) {
-                head = tail;
-            }
-        }
-    }
-    return _s_return(sc, head);
+    return _s_return(
+        sc, reverse_in_place(sc, sc->NIL, os_get_environment_variables()));
 }
 
 static pointer prim_input_port_p(void) { return obj_predicate(is_inport); }
@@ -5383,8 +5419,8 @@ static const struct primitive primitives[] = {
     { "file-info?", prim_file_info_p },
     { "gc", prim_gc },
     { "gc-verbose", prim_gc_verbose },
-    { "get-environment-variable", get_environment_variable },
-    { "get-environment-variables", get_environment_variables },
+    { "get-environment-variable", prim_get_environment_variable },
+    { "get-environment-variables", prim_get_environment_variables },
     { "input-port?", prim_input_port_p },
     { "integer?", prim_integer_p },
     { "length", prim_length },
