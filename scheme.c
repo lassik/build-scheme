@@ -3388,32 +3388,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         }
         s_return(sc, mk_number(sc, v));
 
-    case OP_CAR: /* car */
-        s_return(sc, caar(sc->args));
-
-    case OP_CDR: /* cdr */
-        s_return(sc, cdar(sc->args));
-
-    case OP_CONS: /* cons */
-        cdr(sc->args) = cadr(sc->args);
-        s_return(sc, sc->args);
-
-    case OP_SETCAR: /* set-car! */
-        if (!is_immutable(car(sc->args))) {
-            caar(sc->args) = cadr(sc->args);
-            s_return(sc, car(sc->args));
-        } else {
-            Error_0(sc, "set-car!: unable to alter immutable pair");
-        }
-
-    case OP_SETCDR: /* set-cdr! */
-        if (!is_immutable(car(sc->args))) {
-            cdar(sc->args) = cadr(sc->args);
-            s_return(sc, car(sc->args));
-        } else {
-            Error_0(sc, "set-cdr!: unable to alter immutable pair");
-        }
-
     case OP_CHAR2INT: { /* char->integer */
         char c;
         c = (char)ivalue(car(sc->args));
@@ -4496,6 +4470,20 @@ static int arg_err(void)
     return !ok;
 }
 
+static int arg_pair(pointer *out)
+{
+    pointer arg;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_pair(arg)) {
+        return arg_set_err("arg is not a pair");
+    }
+    *out = arg;
+    return 1;
+}
+
 static int arg_string(const char **out)
 {
     pointer arg;
@@ -4619,6 +4607,31 @@ static pointer prim_append(void)
         return ARG_ERR;
     }
     return _s_return(sc, reverse_in_place(sc, tail, newlist));
+}
+
+static pointer prim_car(void)
+{
+    pointer pair;
+
+    arg_pair(&pair);
+    return arg_err() ? ARG_ERR : _s_return(sc, car(pair));
+}
+
+static pointer prim_cdr(void)
+{
+    pointer pair;
+
+    arg_pair(&pair);
+    return arg_err() ? ARG_ERR : _s_return(sc, cdr(pair));
+}
+
+static pointer prim_cons(void)
+{
+    pointer a, b;
+
+    arg_obj(&a);
+    arg_obj(&b);
+    return arg_err() ? ARG_ERR : _s_return(sc, cons(sc, a, b));
 }
 
 static pointer prim_create_directory(void)
@@ -4890,6 +4903,9 @@ static pointer prim_working_directory(void)
 
 static const struct primitive primitives[] = {
     { "append", prim_append },
+    { "car", prim_car },
+    { "cdr", prim_cdr },
+    { "cons", prim_cons },
     { "create-directory", prim_create_directory },
     { "delete-directory", prim_delete_directory },
     { "delete-file", prim_delete_file },
