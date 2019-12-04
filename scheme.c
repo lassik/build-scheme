@@ -567,7 +567,6 @@ static void dump_stack_mark(scheme *);
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_2(scheme *sc, enum scheme_opcodes op);
-static pointer opexe_3(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_5(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_6(scheme *sc, enum scheme_opcodes op);
@@ -2703,7 +2702,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
         if (sc->loadport->_object._port->kind & port_saw_EOF) {
             if (sc->file_i == 0) {
                 sc->args = sc->NIL;
-                s_goto(sc, OP_QUIT);
+                return sc->NIL;
             } else {
                 file_pop(sc);
                 s_return(sc, sc->value);
@@ -3695,59 +3694,6 @@ int list_length(scheme *sc, pointer a)
     }
 }
 
-static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
-{
-    pointer x;
-    num v;
-    int (*comp_func)(num, num) = 0;
-
-    switch (op) {
-    case OP_NOT: /* not */
-        s_retbool(is_false(car(sc->args)));
-    case OP_NUMEQ: /* = */
-    case OP_LESS: /* < */
-    case OP_GRE: /* > */
-    case OP_LEQ: /* <= */
-    case OP_GEQ: /* >= */
-        switch (op) {
-        case OP_NUMEQ:
-            comp_func = num_eq;
-            break;
-        case OP_LESS:
-            comp_func = num_lt;
-            break;
-        case OP_GRE:
-            comp_func = num_gt;
-            break;
-        case OP_LEQ:
-            comp_func = num_le;
-            break;
-        case OP_GEQ:
-            comp_func = num_ge;
-            break;
-        }
-        x = sc->args;
-        v = nvalue(car(x));
-        x = cdr(x);
-
-        for (; x != sc->NIL; x = cdr(x)) {
-            if (!comp_func(v, nvalue(car(x)))) {
-                s_retbool(0);
-            }
-            v = nvalue(car(x));
-        }
-        s_retbool(1);
-    case OP_EQ: /* eq? */
-        s_retbool(car(sc->args) == cadr(sc->args));
-    case OP_EQV: /* eqv? */
-        s_retbool(eqv(car(sc->args), cadr(sc->args)));
-    default:
-        snprintf(sc->strbuff, STRBUFFSIZE, "%d: illegal operator", sc->op);
-        Error_0(sc, sc->strbuff);
-    }
-    return sc->T;
-}
-
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 {
     pointer x;
@@ -3826,40 +3772,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 
     case OP_LIST_STAR: /* list* */
         s_return(sc, list_star(sc, sc->args));
-
-    case OP_QUIT: /* quit */
-        if (is_pair(sc->args)) {
-            sc->retcode = ivalue(car(sc->args));
-        }
-        return (sc->NIL);
-
-    case OP_GC: /* gc */
-        gc(sc, sc->NIL, sc->NIL);
-        s_return(sc, sc->T);
-
-    case OP_GCVERB: /* gc-verbose */
-    {
-        int was = sc->gc_verbose;
-
-        sc->gc_verbose = (car(sc->args) != sc->F);
-        s_retbool(was);
-    }
-
-    case OP_NEWSEGMENT: /* new-segment */
-        if (!is_pair(sc->args) || !is_number(car(sc->args))) {
-            Error_0(sc, "new-segment: argument must be a number");
-        }
-        alloc_cellseg(sc, (int)ivalue(car(sc->args)));
-        s_return(sc, sc->T);
-
-    case OP_OBLIST: /* oblist */
-        s_return(sc, oblist_all_symbols(sc));
-
-    case OP_CURR_INPORT: /* current-input-port */
-        s_return(sc, sc->inport);
-
-    case OP_CURR_OUTPORT: /* current-output-port */
-        s_return(sc, sc->outport);
 
     case OP_OPEN_INFILE: /* open-input-file */
     case OP_OPEN_OUTFILE: /* open-output-file */
@@ -4486,6 +4398,20 @@ static int arg_long(long *out, long min, long max)
     return 1;
 }
 
+static int arg_num(num *out)
+{
+    pointer arg;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_number(arg)) {
+        return arg_set_err("arg is not a number");
+    }
+    *out = arg->_object._number;
+    return 1;
+}
+
 static int arg_stat(struct stat **out)
 {
     pointer arg;
@@ -4516,6 +4442,44 @@ static pointer obj_predicate(int predicate(pointer))
     arg_obj(&x);
     return arg_err() ? ARG_ERR : _s_return(sc, predicate(x) ? sc->T : sc->F);
 }
+
+static pointer cmp_primitive(int cmp(num, num))
+{
+    num a, b;
+    int ok = 1;
+
+    if (!arg_num(&a)) {
+        goto fail;
+    }
+    do {
+        if (!arg_num(&b)) {
+            goto fail;
+        }
+        if (ok) {
+            if (!cmp(a, b)) {
+                ok = 0;
+            }
+        }
+        a = b;
+    } while (arg_left());
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, ok ? sc->T : sc->F);
+fail:
+    arg_err();
+    return ARG_ERR;
+}
+
+static pointer prim_num_lt(void) { return cmp_primitive(num_lt); }
+
+static pointer prim_num_le(void) { return cmp_primitive(num_le); }
+
+static pointer prim_num_eq(void) { return cmp_primitive(num_eq); }
+
+static pointer prim_num_gt(void) { return cmp_primitive(num_gt); }
+
+static pointer prim_num_ge(void) { return cmp_primitive(num_ge); }
 
 // (append 'a)           => a
 // (append '() 'a)       => a
@@ -4590,6 +4554,22 @@ static pointer prim_create_directory(void)
     return _s_return(sc, sc->T);
 }
 
+static pointer prim_current_input_port(void)
+{
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_return(sc, sc->inport);
+}
+
+static pointer prim_current_output_port(void)
+{
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_return(sc, sc->outport);
+}
+
 static pointer prim_delete_directory(void)
 {
     const char *path;
@@ -4632,6 +4612,30 @@ static pointer prim_eof_object_p(void)
         return ARG_ERR;
     }
     s_retbool(x == sc->EOF_OBJ);
+}
+
+static pointer prim_eq_p(void)
+{
+    pointer a, b;
+
+    arg_obj(&a);
+    arg_obj(&b);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(a == b);
+}
+
+static pointer prim_eqv_p(void)
+{
+    pointer a, b;
+
+    arg_obj(&a);
+    arg_obj(&b);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(eqv(a, b));
 }
 
 #define arg_string_or_port arg_string
@@ -4703,6 +4707,28 @@ static pointer prim_file_info_p(void)
         return ARG_ERR;
     }
     s_retbool(is_file_info(arg));
+}
+
+static pointer prim_gc(void)
+{
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    gc(sc, sc->NIL, sc->NIL);
+    s_return(sc, sc->T);
+}
+
+static pointer prim_gc_verbose(void)
+{
+    int oldval, newval;
+
+    arg_boolean(&newval);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    oldval = sc->gc_verbose;
+    sc->gc_verbose = newval;
+    s_retbool(oldval);
 }
 
 static pointer get_environment_variable(void)
@@ -4793,6 +4819,29 @@ static pointer prim_make_string(void)
     return _s_return(sc, mk_empty_string(sc, len, fill));
 }
 
+static pointer prim_new_segment(void)
+{
+    long n;
+
+    arg_long(&n, 0, LONG_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    alloc_cellseg(sc, n);
+    s_return(sc, sc->T);
+}
+
+static pointer prim_not(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_false(x));
+}
+
 static pointer prim_null_p(void)
 {
     pointer x;
@@ -4805,6 +4854,14 @@ static pointer prim_null_p(void)
 }
 
 static pointer prim_number_p(void) { return obj_predicate(is_number); }
+
+static pointer prim_oblist(void)
+{
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_return(sc, oblist_all_symbols(sc));
+}
 
 static pointer prim_output_port_p(void) { return obj_predicate(is_outport); }
 
@@ -4826,6 +4883,20 @@ static pointer prim_procedure_p(void)
      * in R^3 report sec. 6.9
      */
     s_retbool(is_proc(x) || is_closure(x) || is_continuation(x));
+}
+
+static pointer prim_quit(void)
+{
+    long ret = 0;
+
+    if (arg_left()) {
+        arg_long(&ret, 0, 255);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    sc->retcode = ret;
+    return sc->NIL;
 }
 
 static pointer prim_real_p(void)
@@ -4935,6 +5006,11 @@ static pointer prim_working_directory(void)
 }
 
 static const struct primitive primitives[] = {
+    { "<", prim_num_lt },
+    { "<=", prim_num_le },
+    { "=", prim_num_eq },
+    { ">", prim_num_gt },
+    { ">=", prim_num_ge },
     { "append", prim_append },
     { "boolean?", prim_boolean_p },
     { "car", prim_car },
@@ -4943,16 +5019,22 @@ static const struct primitive primitives[] = {
     { "closure?", prim_closure_p },
     { "cons", prim_cons },
     { "create-directory", prim_create_directory },
+    { "current-input-port", prim_current_input_port },
+    { "current-output-port", prim_current_output_port },
     { "delete-directory", prim_delete_directory },
     { "delete-file", prim_delete_file },
     { "environment?", prim_environment_p },
     { "eof-object?", prim_eof_object_p },
+    { "eq?", prim_eq_p },
+    { "eqv?", prim_eqv_p },
     { "file-info", prim_file_info },
     { "file-info:gid", prim_file_info_gid },
     { "file-info:mode", prim_file_info_mode },
     { "file-info:size", prim_file_info_size },
     { "file-info:uid", prim_file_info_uid },
     { "file-info?", prim_file_info_p },
+    { "gc", prim_gc },
+    { "gc-verbose", prim_gc_verbose },
     { "get-environment-variable", get_environment_variable },
     { "get-environment-variables", get_environment_variables },
     { "input-port?", prim_input_port_p },
@@ -4961,12 +5043,16 @@ static const struct primitive primitives[] = {
     { "list?", prim_list_p },
     { "macro?", prim_macro_p },
     { "make-string", prim_make_string },
+    { "new-segment", prim_new_segment },
+    { "not", prim_not },
     { "null?", prim_null_p },
     { "number?", prim_number_p },
+    { "oblist", prim_oblist },
     { "output-port?", prim_output_port_p },
     { "pair?", prim_pair_p },
     { "port?", prim_port_p },
     { "procedure?", prim_procedure_p },
+    { "quit", prim_quit },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
     { "set-environment-variable", prim_set_environment_variable },
