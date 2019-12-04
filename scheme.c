@@ -114,9 +114,6 @@ void scheme_set_input_port_string(
 void scheme_set_output_port_file(scheme *sc, FILE *fin);
 void scheme_set_output_port_string(
     scheme *sc, char *start, char *past_the_end);
-void scheme_load_file(scheme *sc, FILE *fin);
-void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename);
-void scheme_load_string(scheme *sc, const char *cmd);
 pointer scheme_apply0(scheme *sc, const char *procname);
 pointer scheme_call(scheme *sc, pointer func, pointer args);
 pointer scheme_eval(scheme *sc, pointer obj);
@@ -343,8 +340,6 @@ void setimmutable(pointer p);
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.41"
-
 static int our_stricmp(const char *s1, const char *s2)
 {
     unsigned char c1, c2;
@@ -372,10 +367,6 @@ static const char *our_strlwr(char *s)
 
 #ifndef prompt
 #define prompt "ts> "
-#endif
-
-#ifndef InitFile
-#define InitFile "init.scm"
 #endif
 
 #ifndef FIRST_CELLSEGS
@@ -2336,6 +2327,18 @@ static pointer revappend(scheme *sc, pointer a, pointer b)
     }
 
     return sc->F; /* signal an error */
+}
+
+static pointer mk_string_list(char **sv)
+{
+    pointer list;
+    const char *s;
+
+    list = sc->NIL;
+    for (; (s = *sv); sv++) {
+        list = cons(sc, mk_string(sc, s), list);
+    }
+    return reverse_in_place(sc, sc->NIL, list);
 }
 
 /* equivalence of atoms */
@@ -5750,11 +5753,6 @@ void scheme_deinit(scheme *sc)
 #endif
 }
 
-void scheme_load_file(scheme *sc, FILE *fin)
-{
-    scheme_load_named_file(sc, fin, 0);
-}
-
 void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename)
 {
     dump_stack_reset(sc);
@@ -5784,26 +5782,24 @@ void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename)
     }
 }
 
-void scheme_load_string(scheme *sc, const char *cmd)
+static void die(const char *msg)
 {
-    dump_stack_reset(sc);
-    sc->envir = sc->global_env;
-    sc->file_i = 0;
-    sc->load_stack[0].kind = port_input | port_string;
-    sc->load_stack[0].rep.string.start
-        = (char *)cmd; /* This func respects const */
-    sc->load_stack[0].rep.string.past_the_end = (char *)cmd + strlen(cmd);
-    sc->load_stack[0].rep.string.curr = (char *)cmd;
-    sc->loadport = mk_port(sc, sc->load_stack);
-    sc->retcode = 0;
-    sc->interactive_repl = 0;
-    sc->inport = sc->loadport;
-    sc->args = mk_integer(sc, sc->file_i);
-    Eval_Cycle(sc, OP_T0LVL);
-    typeflag(sc->loadport) = T_ATOM;
-    if (sc->retcode == 0) {
-        sc->retcode = sc->nesting != 0;
+    fprintf(stderr, "%s\n", msg);
+    exit(2);
+}
+
+static void scheme_load_file_or_die(const char *filename)
+{
+    FILE *input;
+
+    if (!(input = fopen(filename, "r"))) {
+        die("could not open script file");
     }
+    scheme_load_named_file(sc, input, filename);
+    if (sc->retcode != 0) {
+        die("error loading script file");
+    }
+    fclose(input);
 }
 
 void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value)
@@ -5818,86 +5814,75 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value)
     }
 }
 
+static void generic_usage(FILE *out, int exitcode)
+{
+    fprintf(out, "usage: scheme                      REPL\n");
+    fprintf(out, "usage: scheme <file> [<args...>]   Run script and exit\n");
+    fprintf(out, "usage: scheme -h                   This help\n");
+    fprintf(out, "usage: scheme -V                   Version info\n");
+    exit(exitcode);
+}
+
+static void usage(void) { generic_usage(stderr, 2); }
+
+static void version(void)
+{
+    printf("(languages scheme)\n");
+    printf("(c-type-bits (int %zu) (long %zu) (pointer %zu))\n", sizeof(int),
+        sizeof(long), sizeof(pointer));
+    exit(0);
+}
+
 int main(int argc, char **argv)
 {
-    FILE *fin;
-    char *file_name = InitFile;
-    int retcode;
-    int isfile = 1;
+    const char *progname;
+    const char *script;
+    const char *arg;
+    pointer args;
+    int hflag, vflag, retcode;
 
-    if (argc == 1) {
-        printf(banner);
+    (void)argc;
+    script = 0;
+    hflag = vflag = 0;
+    progname = *argv++;
+    while ((arg = *argv)) {
+        argv++;
+        if (!strcmp(arg, "--")) {
+            break;
+        } else if (!strcmp(arg, "-h") || !strcmp(arg, "-help")
+            || !strcmp(arg, "--help")) {
+            hflag = 1;
+        } else if (!strcmp(arg, "-V")) {
+            vflag = 1;
+        } else if (arg[0] == '-') {
+            usage();
+        } else {
+            script = arg;
+            break;
+        }
     }
-    if (argc == 2 && strcmp(argv[1], "-?") == 0) {
-        printf("Usage: tinyscheme -?\n");
-        printf("or:    tinyscheme [<file1> <file2> ...]\n");
-        printf("followed by\n");
-        printf("          -1 <file> [<arg1> <arg2> ...]\n");
-        printf("          -c <Scheme commands> [<arg1> <arg2> ...]\n");
-        printf("assuming that the executable is named tinyscheme.\n");
-        printf("Use - as filename for stdin.\n");
-        return 1;
+    if (hflag) {
+        generic_usage(stdout, 0);
+    } else if (vflag) {
+        version();
     }
     if (!(sc = calloc(1, sizeof(*sc)))) {
-        fprintf(stderr, "out of memory\n");
-        return 2;
+        die("out of memory");
     }
     if (!scheme_init(sc)) {
-        fprintf(stderr, "Could not initialize!\n");
-        return 2;
+        die("could not initialize");
     }
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
-    argv++;
-    do {
-        fin = stdin;
-        if (strcmp(file_name, "-") == 0) {
-            ;
-        } else if (strcmp(file_name, "-1") == 0
-            || strcmp(file_name, "-c") == 0) {
-            pointer args = sc->NIL;
-            isfile = file_name[1] == '1';
-            file_name = *argv++;
-            if (strcmp(file_name, "-") == 0) {
-                fin = stdin;
-            } else if (isfile) {
-                fin = fopen(file_name, "r");
-            }
-            for (; *argv; argv++) {
-                pointer value = mk_string(sc, *argv);
-                args = cons(sc, value, args);
-            }
-            args = reverse_in_place(sc, sc->NIL, args);
-            scheme_define(sc, sc->global_env, mk_symbol(sc, "*args*"), args);
-
-        } else {
-            fin = fopen(file_name, "r");
-        }
-        if (isfile && fin == 0) {
-            fprintf(stderr, "Could not open file %s\n", file_name);
-        } else {
-            if (isfile) {
-                scheme_load_named_file(sc, fin, file_name);
-            } else {
-                scheme_load_string(sc, file_name);
-            }
-            if (!isfile || fin != stdin) {
-                if (sc->retcode != 0) {
-                    fprintf(
-                        stderr, "Errors encountered reading %s\n", file_name);
-                }
-                if (isfile) {
-                    fclose(fin);
-                }
-            }
-        }
-        file_name = *argv++;
-    } while (file_name != 0);
-    if (argc == 1) {
+    args = mk_string_list(argv);
+    scheme_define(sc, sc->global_env, mk_symbol(sc, "*args*"), args);
+    scheme_load_file_or_die("init.scm");
+    if (script) {
+        scheme_load_file_or_die(script);
+    } else {
         scheme_load_named_file(sc, stdin, 0);
     }
     retcode = sc->retcode;
     scheme_deinit(sc);
-
     return retcode;
 }
