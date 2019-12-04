@@ -5542,8 +5542,9 @@ int main(int argc, char **argv)
         }
     }
     do {
+        fin = stdin;
         if (strcmp(file_name, "-") == 0) {
-            fin = stdin;
+            ;
         } else if (strcmp(file_name, "-1") == 0
             || strcmp(file_name, "-c") == 0) {
             pointer args = sc->NIL;
