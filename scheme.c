@@ -5080,16 +5080,14 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op)
             if (pcd->func(sc, (enum scheme_opcodes)sc->op) == sc->NIL) {
                 return;
             }
-            if (sc->no_memory) {
-                fprintf(stderr, "No memory!\n");
-                return;
-            }
         } else {
-            call_primitive(sc->op - ndispatch);
-            if (sc->no_memory) {
-                fprintf(stderr, "No memory!\n");
+            if (call_primitive(sc->op - ndispatch) == sc->NIL) {
                 return;
             }
+        }
+        if (sc->no_memory) {
+            fprintf(stderr, "No memory!\n");
+            return;
         }
     }
 }
