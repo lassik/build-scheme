@@ -17,6 +17,8 @@
 
 #include <errno.h>
 #include <unistd.h>
+
+extern char **environ;
 #endif
 
 #ifdef WIN32
@@ -4782,6 +4784,62 @@ static pointer prim_file_info_uid(void)
     return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_uid));
 }
 
+static pointer get_environment_variable(void)
+{
+    const char *name;
+    const char *value;
+
+    arg_string(&name);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    value = getenv(name);
+    return _s_return(sc, value ? mk_string(sc, value) : sc->F);
+}
+
+static pointer get_environment_variables(void)
+{
+    pointer head, tail, newtail, name, value;
+    char **sp;
+    const char *s;
+    const char *eq;
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    head = tail = sc->NIL;
+    for (sp = environ; (s = *sp); sp++) {
+        eq = strchr(s, '=');
+        if (eq) {
+            name = mk_counted_string(sc, s, eq - s);
+            value = mk_string(sc, eq + 1);
+            newtail = cons(sc, cons(sc, name, value), sc->NIL);
+            set_cdr(tail, newtail);
+            tail = newtail;
+            if (head == sc->NIL) {
+                head = tail;
+            }
+        }
+    }
+    return _s_return(sc, head);
+}
+
+static pointer prim_set_environment_variable(void)
+{
+    const char *name;
+    const char *value;
+
+    arg_string(&name);
+    arg_string(&value);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (setenv(name, value, 1) == -1) {
+        return os_error("setenv");
+    }
+    return _s_return(sc, sc->T);
+}
+
 static pointer prim_set_file_mode(void)
 {
     const char *path;
@@ -4808,7 +4866,10 @@ static const struct primitive primitives[] = {
     { "file-info:size", prim_file_info_size },
     { "file-info:uid", prim_file_info_uid },
     { "file-info?", prim_file_info_p },
+    { "get-environment-variable", get_environment_variable },
+    { "get-environment-variables", get_environment_variables },
     { "make-string", prim_make_string },
+    { "set-environment-variable", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
 };
 
