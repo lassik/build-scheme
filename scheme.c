@@ -15,6 +15,7 @@
 #ifndef WIN32
 #include <sys/stat.h>
 
+#include <errno.h>
 #include <unistd.h>
 #endif
 
@@ -69,8 +70,6 @@ typedef struct num {
     } value;
 } num;
 
-scheme *scheme_init_new();
-scheme *scheme_init_new_custom_alloc(func_alloc malloc, func_dealloc free);
 int scheme_init(scheme *sc);
 int scheme_init_custom_alloc(scheme *sc, func_alloc, func_dealloc);
 void scheme_deinit(scheme *sc);
@@ -239,6 +238,8 @@ struct scheme {
     void *dump_base; /* pointer to base of allocated dump stack */
     int dump_size; /* number of frames allocated for dump stack */
 };
+
+static scheme *sc;
 
 /* operator code */
 enum scheme_opcodes {
@@ -579,7 +580,7 @@ static pointer opexe_6(scheme *sc, enum scheme_opcodes op);
 static void Eval_Cycle(scheme *sc, enum scheme_opcodes op);
 static void assign_syntax(scheme *sc, char *name);
 static int syntaxnum(pointer p);
-static void assign_proc(scheme *sc, enum scheme_opcodes, char *name);
+static void assign_proc(scheme *sc, enum scheme_opcodes, const char *name);
 
 #define num_ivalue(n)                                                        \
     (n.is_fixnum ? (n).value.ivalue : (long)(n).value.rvalue)
@@ -2694,16 +2695,6 @@ static void s_save(
 static void dump_stack_mark(scheme *sc) { mark(sc->dump); }
 #endif
 
-static pointer
-prim_create_directory(scheme *sc, const char *path, int mode)
-{
-     if (mkdir(path, mode) == -1) {
-          Error_1(sc, "create-directory: ",
-                  car(sc->args));
-     }
-     return sc->T;
-}
-
 #define s_retbool(tf) s_return(sc, (tf) ? sc->T : sc->F)
 
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
@@ -3704,11 +3695,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         s_return(sc, car(sc->args));
     }
 
-    case OP_CREATE_DIRECTORY: {
-         s_return(sc, prim_create_directory(sc,
-                                            strvalue(car(sc->args)), ivalue(cadr(sc->args))));
-    }
-
     default:
         snprintf(sc->strbuff, STRBUFFSIZE, "%d: illegal operator", sc->op);
         Error_0(sc, sc->strbuff);
@@ -4504,6 +4490,168 @@ static op_code_info dispatch_table[] = {
     { 0 }
 };
 
+static const size_t ndispatch
+    = (sizeof(dispatch_table) / sizeof(dispatch_table[0])) - 1;
+
+struct primitive {
+    const char *name;
+    pointer (*func)(void);
+};
+
+#define ARG_ERR (sc->EOF_OBJ) // TODO
+
+static const char *prim_name;
+static const char *prim_arg_err;
+static pointer prim_args;
+static int prim_args_done;
+
+static int arg_left(void) { return prim_args != sc->NIL; }
+
+static int arg_set_err(const char *msg)
+{
+    if (!prim_arg_err) {
+        prim_arg_err = msg;
+    }
+    return 0;
+}
+
+static int arg_obj(pointer *out)
+{
+    *out = NULL;
+    if (prim_args == sc->NIL) {
+        return arg_set_err("too few args");
+    }
+    if (!is_pair(prim_args)) {
+        return arg_set_err("arglist is dotted");
+    }
+    *out = car(prim_args);
+    prim_args = cdr(prim_args);
+    return 1;
+}
+
+static int arg_err(void)
+{
+    int ok;
+
+    prim_args_done = 1;
+    if (arg_left()) {
+        ok = arg_set_err("too many args");
+    } else {
+        ok = !prim_arg_err;
+    }
+    return !ok;
+}
+
+static int arg_string(const char **out)
+{
+    pointer arg;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_string(arg)) {
+        return arg_set_err("arg is not a string");
+    }
+    *out = strvalue(arg);
+    return 1;
+}
+
+static int arg_char(long *out)
+{
+    pointer arg;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_character(arg)) {
+        return arg_set_err("arg is not a character");
+    }
+    *out = charvalue(arg);
+    return 1;
+}
+
+static int arg_long(long *out, long min, long max)
+{
+    pointer arg;
+    long val;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_integer(arg)) {
+        return arg_set_err("arg is not an integer");
+    }
+    val = ivalue(arg);
+    if (val < min) {
+        return arg_set_err("arg is too small");
+    }
+    if (val > max) {
+        return arg_set_err("arg is too large");
+    }
+    *out = val;
+    return 1;
+}
+
+static pointer prim_make_string(void)
+{
+    long len;
+    long fill = ' ';
+
+    arg_long(&len, 0, LONG_MAX);
+    if (arg_left()) {
+        arg_char(&fill);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, mk_empty_string(sc, len, fill));
+}
+
+static pointer prim_create_directory(void)
+{
+    const char *path;
+    long mode = 0555;
+
+    arg_string(&path);
+    if (arg_left()) {
+        arg_long(&mode, 0, 0777);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (mkdir(path, mode) == -1) {
+        return _Error_1(sc, strerror(errno), 0);
+    }
+    return _s_return(sc, sc->T);
+}
+
+static const struct primitive primitives[] = {
+    { "create-directory", prim_create_directory },
+    { "make-string", prim_make_string },
+};
+
+static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
+
+static pointer call_primitive(size_t i)
+{
+    const struct primitive *prim;
+    pointer result;
+
+    prim = &primitives[i];
+    prim_name = prim->name;
+    prim_args = sc->args;
+    prim_arg_err = 0;
+    prim_args_done = 0;
+    result = prim->func();
+    if (!prim_args_done) {
+        prim_arg_err = "args not done";
+    }
+    if (prim_arg_err) {
+        return _Error_1(sc, prim_arg_err, 0);
+    }
+    return result;
+}
+
 static const char *procname(pointer x)
 {
     int n = procnum(x);
@@ -4519,73 +4667,81 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op)
 {
     sc->op = op;
     for (;;) {
-        op_code_info *pcd = dispatch_table + sc->op;
-        if (pcd->name != 0) { /* if built-in function, check arguments */
-            char msg[STRBUFFSIZE];
-            int ok = 1;
-            int n = list_length(sc, sc->args);
+        if (sc->op < ndispatch) {
+            op_code_info *pcd = dispatch_table + sc->op;
+            if (pcd->name != 0) { /* if built-in function, check arguments */
+                char msg[STRBUFFSIZE];
+                int ok = 1;
+                int n = list_length(sc, sc->args);
 
-            /* Check number of arguments */
-            if (n < pcd->min_arity) {
-                ok = 0;
-                snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
-                    pcd->name,
-                    pcd->min_arity == pcd->max_arity ? "" : " at least",
-                    pcd->min_arity);
-            }
-            if (ok && n > pcd->max_arity) {
-                ok = 0;
-                snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
-                    pcd->name,
-                    pcd->min_arity == pcd->max_arity ? "" : " at most",
-                    pcd->max_arity);
-            }
-            if (ok) {
-                if (pcd->arg_tests_encoding != 0) {
-                    int i = 0;
-                    int j;
-                    const char *t = pcd->arg_tests_encoding;
-                    pointer arglist = sc->args;
-                    do {
-                        pointer arg = car(arglist);
-                        j = (int)t[0];
-                        if (j == TST_LIST[0]) {
-                            if (arg != sc->NIL && !is_pair(arg))
-                                break;
-                        } else {
-                            if (!tests[j].fct(arg))
-                                break;
-                        }
+                /* Check number of arguments */
+                if (n < pcd->min_arity) {
+                    ok = 0;
+                    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
+                        pcd->name,
+                        pcd->min_arity == pcd->max_arity ? "" : " at least",
+                        pcd->min_arity);
+                }
+                if (ok && n > pcd->max_arity) {
+                    ok = 0;
+                    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
+                        pcd->name,
+                        pcd->min_arity == pcd->max_arity ? "" : " at most",
+                        pcd->max_arity);
+                }
+                if (ok) {
+                    if (pcd->arg_tests_encoding != 0) {
+                        int i = 0;
+                        int j;
+                        const char *t = pcd->arg_tests_encoding;
+                        pointer arglist = sc->args;
+                        do {
+                            pointer arg = car(arglist);
+                            j = (int)t[0];
+                            if (j == TST_LIST[0]) {
+                                if (arg != sc->NIL && !is_pair(arg))
+                                    break;
+                            } else {
+                                if (!tests[j].fct(arg))
+                                    break;
+                            }
 
-                        if (t[1]
-                            != 0) { /* last test is replicated as necessary */
-                            t++;
+                            if (t[1] != 0) { /* last test is replicated as
+                                                necessary */
+                                t++;
+                            }
+                            arglist = cdr(arglist);
+                            i++;
+                        } while (i < n);
+                        if (i < n) {
+                            ok = 0;
+                            snprintf(msg, STRBUFFSIZE,
+                                "%s: argument %d must be: %s", pcd->name,
+                                i + 1, tests[j].kind);
                         }
-                        arglist = cdr(arglist);
-                        i++;
-                    } while (i < n);
-                    if (i < n) {
-                        ok = 0;
-                        snprintf(msg, STRBUFFSIZE,
-                            "%s: argument %d must be: %s", pcd->name, i + 1,
-                            tests[j].kind);
                     }
                 }
-            }
-            if (!ok) {
-                if (_Error_1(sc, msg, 0) == sc->NIL) {
-                    return;
+                if (!ok) {
+                    if (_Error_1(sc, msg, 0) == sc->NIL) {
+                        return;
+                    }
+                    pcd = dispatch_table + sc->op;
                 }
-                pcd = dispatch_table + sc->op;
             }
-        }
-        ok_to_freely_gc(sc);
-        if (pcd->func(sc, (enum scheme_opcodes)sc->op) == sc->NIL) {
-            return;
-        }
-        if (sc->no_memory) {
-            fprintf(stderr, "No memory!\n");
-            return;
+            ok_to_freely_gc(sc);
+            if (pcd->func(sc, (enum scheme_opcodes)sc->op) == sc->NIL) {
+                return;
+            }
+            if (sc->no_memory) {
+                fprintf(stderr, "No memory!\n");
+                return;
+            }
+        } else {
+            call_primitive(sc->op - ndispatch);
+            if (sc->no_memory) {
+                fprintf(stderr, "No memory!\n");
+                return;
+            }
         }
     }
 }
@@ -4600,7 +4756,7 @@ static void assign_syntax(scheme *sc, char *name)
     typeflag(x) |= T_SYNTAX;
 }
 
-static void assign_proc(scheme *sc, enum scheme_opcodes op, char *name)
+static void assign_proc(scheme *sc, enum scheme_opcodes op, const char *name)
 {
     pointer x, y;
 
@@ -4620,7 +4776,8 @@ static pointer mk_proc(scheme *sc, enum scheme_opcodes op)
     return y;
 }
 
-/* Hard-coded for the given keywords. Remember to rewrite if more are added!
+/* Hard-coded for the given keywords. Remember to rewrite if more are
+ * added!
  */
 static int syntaxnum(pointer p)
 {
@@ -4672,28 +4829,6 @@ static int syntaxnum(pointer p)
     }
 }
 
-scheme *scheme_init_new()
-{
-    scheme *sc = (scheme *)malloc(sizeof(scheme));
-    if (!scheme_init(sc)) {
-        free(sc);
-        return 0;
-    } else {
-        return sc;
-    }
-}
-
-scheme *scheme_init_new_custom_alloc(func_alloc malloc, func_dealloc free)
-{
-    scheme *sc = (scheme *)malloc(sizeof(scheme));
-    if (!scheme_init_custom_alloc(sc, malloc, free)) {
-        free(sc);
-        return 0;
-    } else {
-        return sc;
-    }
-}
-
 int scheme_init(scheme *sc)
 {
     return scheme_init_custom_alloc(sc, malloc, free);
@@ -4701,7 +4836,7 @@ int scheme_init(scheme *sc)
 
 int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free)
 {
-    int i, n = sizeof(dispatch_table) / sizeof(dispatch_table[0]);
+    int i;
     pointer x;
 
     num_zero.is_fixnum = 1;
@@ -4777,10 +4912,14 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free)
     assign_syntax(sc, "macro");
     assign_syntax(sc, "case");
 
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < ndispatch; i++) {
         if (dispatch_table[i].name != 0) {
             assign_proc(sc, (enum scheme_opcodes)i, dispatch_table[i].name);
         }
+    }
+    for (i = 0; i < nprimitive; i++) {
+        assign_proc(
+            sc, (enum scheme_opcodes)(ndispatch + i), primitives[i].name);
     }
 
     /* initialization of global pointers to special symbols */
@@ -4937,7 +5076,6 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value)
 
 int main(int argc, char **argv)
 {
-    scheme sc;
     FILE *fin;
     char *file_name = InitFile;
     int retcode;
@@ -4956,12 +5094,16 @@ int main(int argc, char **argv)
         printf("Use - as filename for stdin.\n");
         return 1;
     }
-    if (!scheme_init(&sc)) {
+    if (!(sc = calloc(1, sizeof(*sc)))) {
+        fprintf(stderr, "out of memory\n");
+        return 2;
+    }
+    if (!scheme_init(sc)) {
         fprintf(stderr, "Could not initialize!\n");
         return 2;
     }
-    scheme_set_input_port_file(&sc, stdin);
-    scheme_set_output_port_file(&sc, stdout);
+    scheme_set_input_port_file(sc, stdin);
+    scheme_set_output_port_file(sc, stdout);
     argv++;
     if (access(file_name, 0) != 0) {
         char *p = getenv("TINYSCHEMEINIT");
@@ -4974,7 +5116,7 @@ int main(int argc, char **argv)
             fin = stdin;
         } else if (strcmp(file_name, "-1") == 0
             || strcmp(file_name, "-c") == 0) {
-            pointer args = sc.NIL;
+            pointer args = sc->NIL;
             isfile = file_name[1] == '1';
             file_name = *argv++;
             if (strcmp(file_name, "-") == 0) {
@@ -4983,11 +5125,11 @@ int main(int argc, char **argv)
                 fin = fopen(file_name, "r");
             }
             for (; *argv; argv++) {
-                pointer value = mk_string(&sc, *argv);
-                args = cons(&sc, value, args);
+                pointer value = mk_string(sc, *argv);
+                args = cons(sc, value, args);
             }
-            args = reverse_in_place(&sc, sc.NIL, args);
-            scheme_define(&sc, sc.global_env, mk_symbol(&sc, "*args*"), args);
+            args = reverse_in_place(sc, sc->NIL, args);
+            scheme_define(sc, sc->global_env, mk_symbol(sc, "*args*"), args);
 
         } else {
             fin = fopen(file_name, "r");
@@ -4996,12 +5138,12 @@ int main(int argc, char **argv)
             fprintf(stderr, "Could not open file %s\n", file_name);
         } else {
             if (isfile) {
-                scheme_load_named_file(&sc, fin, file_name);
+                scheme_load_named_file(sc, fin, file_name);
             } else {
-                scheme_load_string(&sc, file_name);
+                scheme_load_string(sc, file_name);
             }
             if (!isfile || fin != stdin) {
-                if (sc.retcode != 0) {
+                if (sc->retcode != 0) {
                     fprintf(
                         stderr, "Errors encountered reading %s\n", file_name);
                 }
@@ -5013,10 +5155,10 @@ int main(int argc, char **argv)
         file_name = *argv++;
     } while (file_name != 0);
     if (argc == 1) {
-        scheme_load_named_file(&sc, stdin, 0);
+        scheme_load_named_file(sc, stdin, 0);
     }
-    retcode = sc.retcode;
-    scheme_deinit(&sc);
+    retcode = sc->retcode;
+    scheme_deinit(sc);
 
     return retcode;
 }
