@@ -3857,7 +3857,7 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op)
 
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 {
-    pointer x, y;
+    pointer x;
 
     switch (op) {
     case OP_FORCE: /* force */
@@ -3933,25 +3933,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 
     case OP_LIST_STAR: /* list* */
         s_return(sc, list_star(sc, sc->args));
-
-    case OP_APPEND: /* append */
-        x = sc->NIL;
-        y = sc->args;
-        if (y == x) {
-            s_return(sc, x);
-        }
-
-        /* cdr() in the while condition is not a typo. If car() */
-        /* is used (append '() 'a) will return the wrong result.*/
-        while (cdr(y) != sc->NIL) {
-            x = revappend(sc, x, car(y));
-            y = cdr(y);
-            if (x == sc->F) {
-                Error_0(sc, "non-list argument to append");
-            }
-        }
-
-        s_return(sc, reverse_in_place(sc, car(y), x));
 
     case OP_QUIT: /* quit */
         if (is_pair(sc->args)) {
@@ -4651,6 +4632,28 @@ static pointer prim_make_string(void)
     return _s_return(sc, mk_empty_string(sc, len, fill));
 }
 
+// (append 'a)           => a
+// (append '() 'a)       => a
+// (append '(1) 'a)      => (1 . a)
+// (append '(1) '(2) 'a) => (1 2 . a)
+static pointer prim_append(void)
+{
+    pointer newlist, tail;
+
+    newlist = tail = sc->NIL;
+    while (arg_left()) {
+        newlist = revappend(sc, newlist, tail);
+        if (!arg_obj(&tail)) {
+            return sc->NIL;
+        }
+        // Error_0(sc, "non-list argument to append");
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, reverse_in_place(sc, tail, newlist));
+}
+
 static pointer prim_create_directory(void)
 {
     const char *path;
@@ -4903,6 +4906,7 @@ static pointer prim_working_directory(void)
 }
 
 static const struct primitive primitives[] = {
+    { "append", prim_append },
     { "create-directory", prim_create_directory },
     { "delete-directory", prim_delete_directory },
     { "delete-file", prim_delete_file },
