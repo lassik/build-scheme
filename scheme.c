@@ -574,7 +574,6 @@ static void printatom(scheme *sc, pointer l, int f);
 static pointer mk_proc(scheme *sc, enum scheme_opcodes op);
 static pointer mk_closure(scheme *sc, pointer c, pointer e);
 static pointer mk_continuation(scheme *sc, pointer d);
-static pointer reverse(scheme *sc, pointer a);
 static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
 static pointer revappend(scheme *sc, pointer a, pointer b);
 static void dump_stack_mark(scheme *);
@@ -2300,18 +2299,6 @@ static pointer list_star(scheme *sc, pointer d)
     return q;
 }
 
-/* reverse list -- produce new list */
-static pointer reverse(scheme *sc, pointer a)
-{
-    /* a must be checked by gc */
-    pointer p = sc->NIL;
-
-    for (; is_pair(a); a = cdr(a)) {
-        p = cons(sc, car(a), p);
-    }
-    return (p);
-}
-
 /* reverse list --- in-place */
 static pointer reverse_in_place(scheme *sc, pointer term, pointer list)
 {
@@ -3944,9 +3931,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
             }
         }
 
-    case OP_REVERSE: /* reverse */
-        s_return(sc, reverse(sc, car(sc->args)));
-
     case OP_LIST_STAR: /* list* */
         s_return(sc, list_star(sc, sc->args));
 
@@ -4824,6 +4808,22 @@ static pointer get_environment_variables(void)
     return _s_return(sc, head);
 }
 
+static pointer prim_reverse(void)
+{
+    pointer a; /* TODO: must be checked by gc */
+    pointer p;
+
+    arg_obj(&a);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    p = sc->NIL;
+    for (; is_pair(a); a = cdr(a)) {
+        p = cons(sc, car(a), p);
+    }
+    return _s_return(sc, p);
+}
+
 static pointer prim_set_environment_variable(void)
 {
     const char *name;
@@ -4915,6 +4915,7 @@ static const struct primitive primitives[] = {
     { "get-environment-variable", get_environment_variable },
     { "get-environment-variables", get_environment_variables },
     { "make-string", prim_make_string },
+    { "reverse", prim_reverse },
     { "set-environment-variable", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
     { "set-working-directory", prim_set_working_directory },

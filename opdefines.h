@@ -123,7 +123,6 @@
     _OP_DEF(opexe_4, "newline",                        0,  1,       TST_OUTPORT,                     OP_NEWLINE          )
     _OP_DEF(opexe_4, "error",                          1,  INF_ARG, TST_NONE,                        OP_ERR0             )
     _OP_DEF(opexe_4, 0,                                0,  0,       0,                               OP_ERR1             )
-    _OP_DEF(opexe_4, "reverse",                        1,  1,       TST_LIST,                        OP_REVERSE          )
     _OP_DEF(opexe_4, "list*",                          1,  INF_ARG, TST_NONE,                        OP_LIST_STAR        )
     _OP_DEF(opexe_4, "append",                         0,  INF_ARG, TST_NONE,                        OP_APPEND           )
     _OP_DEF(opexe_4, "quit",                           0,  1,       TST_NUMBER,                      OP_QUIT             )
