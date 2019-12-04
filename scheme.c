@@ -4345,15 +4345,8 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op)
 static pointer opexe_6(scheme *sc, enum scheme_opcodes op)
 {
     pointer x, y;
-    long v;
 
     switch (op) {
-    case OP_LIST_LENGTH: /* length */ /* a.k */
-        v = list_length(sc, car(sc->args));
-        if (v < 0) {
-            Error_1(sc, "length: not a list:", car(sc->args));
-        }
-        s_return(sc, mk_integer(sc, v));
 
     case OP_ASSQ: /* assq */ /* a.k */
         x = car(sc->args);
@@ -4785,6 +4778,22 @@ static pointer get_environment_variables(void)
     return _s_return(sc, head);
 }
 
+static pointer prim_length(void)
+{
+    pointer arg;
+    int n;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    n = list_length(sc, arg);
+    if (n < 0) {
+        Error_1(sc, "length: not a list:", arg);
+    }
+    return _s_return(sc, mk_integer(sc, n));
+}
+
 static pointer prim_reverse(void)
 {
     pointer a; /* TODO: must be checked by gc */
@@ -4892,6 +4901,7 @@ static const struct primitive primitives[] = {
     { "file-info?", prim_file_info_p },
     { "get-environment-variable", get_environment_variable },
     { "get-environment-variables", get_environment_variables },
+    { "length", prim_length },
     { "make-string", prim_make_string },
     { "reverse", prim_reverse },
     { "set-environment-variable", prim_set_environment_variable },
