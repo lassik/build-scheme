@@ -7,17 +7,41 @@
 // - TinyScheme 1.41 by Dimitrios Souflis, Kevin Cozens, Jonathan S. Shapiro
 // - scheme.c by Lassi Kortela
 
-#ifndef WIN32
-#include <sys/stat.h>
-
-#include <errno.h>
-#include <unistd.h>
-
-extern char **environ;
+#ifdef __unix__
+#define SCHEME_UNIX
 #endif
 
-#ifdef WIN32
-#define snprintf _snprintf
+#ifdef __APPLE__
+#ifdef __MACH__
+#define SCHEME_UNIX
+#endif
+#endif
+
+#ifdef _WIN32
+#define SCHEME_WINDOWS
+#endif
+
+//
+
+#ifdef SCHEME_WINDOWS
+#define UNICODE
+#define _UNICODE
+#endif
+
+#ifdef SCHEME_UNIX
+#include <sys/stat.h>
+#endif
+
+#ifdef SCHEME_UNIX
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
+#ifdef SCHEME_WINDOWS
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
 #endif
 
 #include <ctype.h>
@@ -26,6 +50,20 @@ extern char **environ;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef SCHEME_WINDOWS
+#define snprintf _snprintf
+#endif
+
+#ifdef __BORLANDC__
+#define _setmode setmode
+#endif
+
+#ifdef SCHEME_UNIX
+extern char **environ;
+#endif
+
+//
 
 /*
  * Leave it defined if you want continuations, and also for the Sharp Zaurus.
@@ -3689,6 +3727,344 @@ int list_length(scheme *sc, pointer a)
     }
 }
 
+#ifdef SCHEME_WINDOWS
+static pointer wstring_to_utf8(const wchar_t *wstring, char **out_utf8)
+{
+    char *utf8;
+    int nbyte; /* including null terminator */
+
+    *out_utf8 = 0;
+    if (!(nbyte = WideCharToMultiByte(CP_UTF8, 0, wstring, -1, 0, 0, 0, 0))) {
+        return _Error_1(sc, "cannot convert WinAPI string to UTF-8", 0);
+    }
+    if (!(utf8 = calloc(nbyte, 1))) {
+        return _Error_1(sc, "out of memory", 0);
+    }
+    if (WideCharToMultiByte(CP_UTF8, 0, wstring, -1, utf8, nbyte, 0, 0)
+        != nbyte) {
+        free(utf8);
+        return _Error_1(sc, "cannot convert WinAPI string to UTF-8", 0);
+    }
+    *out_utf8 = utf8;
+    return 0;
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer utf8_to_wstring(const char *utf8, wchar_t **out_wstring)
+{
+    wchar_t *wstring;
+    int nchar; /* including null terminator */
+
+    *out_wstring = 0;
+    if (!(nchar = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, 0, 0))) {
+        return _Error_1(sc, "cannot convert UTF-8 to WinAPI string", 0);
+    }
+    if (!(wstring = calloc(nchar, sizeof(*wstring)))) {
+        return _Error_1(sc, "out of memory", 0);
+    }
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wstring, nchar) != nchar) {
+        free(wstring);
+        return _Error_1(sc, "cannot convert UTF-8 to WinAPI string", 0);
+    }
+    *out_wstring = wstring;
+    return 0;
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_error(const char *syscall)
+{
+    (void)syscall;
+    return _Error_1(sc, strerror(errno), 0);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_error(const char *syscall)
+{
+    pointer err;
+    wchar_t *wstring;
+    char *utf8;
+
+    (void)syscall;
+    FormatMessageW(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0,
+        GetLastError(), 0, (wchar_t *)&wstring, 0, 0);
+    if ((err = wstring_to_utf8(wstring, &utf8))) {
+        return err;
+    }
+    free(wstring);
+    return _Error_1(sc, utf8, 0);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_create_directory(const char *path, long mode)
+{
+    if (mkdir(path, mode) == -1) {
+        return os_error("mkdir");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_create_directory(const char *path, long mode)
+{
+    pointer err;
+    wchar_t *wpath;
+
+    (void)mode; // TODO
+    if ((err = utf8_to_wstring(path, &wpath))) {
+        return err;
+    }
+    if (!CreateDirectoryW(wpath, 0)) {
+        return os_error("CreateDirectory");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_delete_directory(const char *path)
+{
+    if (rmdir(path) == -1) {
+        return os_error("rmdir");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_delete_directory(const char *path)
+{
+    pointer err;
+    wchar_t *wpath;
+
+    if ((err = utf8_to_wstring(path, &wpath))) {
+        return err;
+    }
+    if (!RemoveDirectoryW(wpath)) {
+        return os_error("RemoveDirectory");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_delete_file(const char *path)
+{
+    if (unlink(path) == -1) {
+        return os_error("unlink");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_delete_file(const char *path)
+{
+    pointer err;
+    wchar_t *wpath;
+
+    if ((err = utf8_to_wstring(path, &wpath))) {
+        return err;
+    }
+    if (!DeleteFileW(wpath)) {
+        return os_error("DeleteFile");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_working_directory(void)
+{
+    pointer string;
+    char *newbuf;
+    char *buf;
+    size_t cap;
+
+    buf = 0;
+    cap = 128;
+    for (;;) {
+        newbuf = realloc(buf, cap);
+        if (!newbuf) {
+            free(buf);
+            return sc->NIL;
+        }
+        buf = newbuf;
+        if (getcwd(buf, cap)) {
+            break;
+        }
+        if (errno != ERANGE) {
+            return os_error("getcwd");
+        }
+        cap *= 2;
+    }
+    string = mk_string(sc, buf);
+    free(buf);
+    return _s_return(sc, string);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_working_directory(void)
+{
+    pointer err;
+    wchar_t *wstring;
+    char *utf8;
+    DWORD cap, len;
+
+    if (!(cap = GetCurrentDirectoryW(0, 0))) {
+        return os_error("GetCurrentDirectory");
+    }
+    if (!(wstring = calloc(cap, sizeof(*wstring)))) {
+        return _Error_1(sc, "out of memory", 0);
+    }
+    if (!(len = GetCurrentDirectoryW(cap, wstring))) {
+        return os_error("GetCurrentDirectory");
+    }
+    if (len != cap - 1) {
+        return _Error_1(sc, "GetCurrentDirectory length mismatch", 0);
+    }
+    err = wstring_to_utf8(wstring, &utf8);
+    free(wstring);
+    if (err) {
+        return err;
+    }
+    return mk_string(sc, utf8);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_file_info(const char *path, int follow)
+{
+    struct stat *st;
+    int ans;
+
+    if (!(st = sc->malloc(sizeof(*st)))) {
+        return sc->NIL;
+    }
+    if (follow) {
+        ans = stat(path, st);
+    } else {
+        ans = lstat(path, st);
+    }
+    if (ans == -1) {
+        sc->free(st);
+        return os_error("stat");
+    }
+    return _s_return(sc, mk_opaque_type(T_FILE_INFO, st));
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static long os_file_info_gid(struct stat *st) { return st->st_gid; }
+#endif
+
+#ifdef SCHEME_UNIX
+static long os_file_info_uid(struct stat *st) { return st->st_uid; }
+#endif
+
+#ifdef SCHEME_UNIX
+static long os_file_info_mode(struct stat *st) { return st->st_mode; }
+#endif
+
+#ifdef SCHEME_UNIX
+static long os_file_info_size(struct stat *st) { return st->st_size; }
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_file_info(const char *path, int follow)
+{
+    WIN32_FIND_DATAW buf;
+    void *p;
+    HANDLE handle;
+    pointer err;
+    wchar_t *wpath;
+
+    if ((err = utf8_to_wstring(path, &wpath))) {
+        return err;
+    }
+    handle = FindFirstFileW(wpath, &buf);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return os_error("FindFirstFile");
+    }
+    if (!FindClose(handle)) {
+        return os_error("FindClose");
+    }
+    if (!(p = sc->malloc(sizeof(buf)))) {
+        return sc->NIL;
+    }
+    memcpy(p, &buf, sizeof(buf));
+    return _s_return(sc, mk_opaque_type(T_FILE_INFO, p));
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static long os_file_info_gid(WIN32_FIND_DATA *data) { return 0; }
+#endif
+
+#ifdef SCHEME_WINDOWS
+static long os_file_info_uid(WIN32_FIND_DATA *data) { return 0; }
+#endif
+
+#ifdef SCHEME_WINDOWS
+static long os_file_info_mode(WIN32_FIND_DATA *data) { return 0; }
+#endif
+
+#ifdef SCHEME_WINDOWS
+static long os_file_info_size(WIN32_FIND_DATA *data)
+{
+    return data->nFileSizeLow + (data->nFileSizeHigh * (MAXDWORD + 1));
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_set_file_mode(const char *path, long mode)
+{
+    if (chmod(path, mode) == -1) {
+        return os_error("chmod");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_set_file_mode(const char *path, long mode)
+{
+    return _Error_1(sc, "chmod not available on Windows", 0);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_set_working_directory(const char *path)
+{
+    if (chdir(path) == -1) {
+        return os_error("chdir");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_set_working_directory(const char *path)
+{
+    pointer err;
+    wchar_t *wpath;
+
+    if ((err = utf8_to_wstring(path, &wpath))) {
+        return err;
+    }
+    if (!SetCurrentDirectory(wpath)) {
+        return os_error("SetCurrentDirectory");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 {
     pointer x;
@@ -3831,7 +4207,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         port *p;
 
         if ((p = car(sc->args)->_object._port)->kind & port_string) {
-            off_t size;
+            long size;
             char *str;
 
             size = p->rep.string.curr - p->rep.string.start + 1;
@@ -4407,10 +4783,10 @@ static int arg_num(num *out)
     return 1;
 }
 
-static int arg_stat(struct stat **out)
+static int arg_stat(void **out)
 {
     pointer arg;
-    struct stat *st;
+    void *st;
 
     *out = 0;
     if (!arg_obj(&arg)) {
@@ -4422,12 +4798,6 @@ static int arg_stat(struct stat **out)
     st = arg->_object._opaque._p;
     *out = st;
     return 1;
-}
-
-static pointer os_error(const char *syscall)
-{
-    (void)syscall;
-    return _Error_1(sc, strerror(errno), 0);
 }
 
 static pointer obj_predicate(int predicate(pointer))
@@ -4543,10 +4913,7 @@ static pointer prim_create_directory(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (mkdir(path, mode) == -1) {
-        return os_error("mkdir");
-    }
-    return _s_return(sc, sc->T);
+    return os_create_directory(path, mode);
 }
 
 static pointer prim_current_input_port(void)
@@ -4573,10 +4940,7 @@ static pointer prim_delete_directory(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (rmdir(path) == -1) {
-        return os_error("rmdir");
-    }
-    return _s_return(sc, sc->T);
+    return os_delete_directory(path);
 }
 
 static pointer prim_delete_file(void)
@@ -4587,10 +4951,7 @@ static pointer prim_delete_file(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (unlink(path) == -1) {
-        return os_error("unlink");
-    }
-    return _s_return(sc, sc->T);
+    return os_delete_file(path);
 }
 
 static pointer prim_environment_p(void)
@@ -4637,60 +4998,51 @@ static pointer prim_eqv_p(void)
 
 static pointer prim_file_info(void)
 {
-    struct stat *st;
     const char *path;
-    int follow, ans;
+    int follow;
 
     arg_string_or_port(&path);
     arg_boolean(&follow);
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (!(st = sc->malloc(sizeof(*st)))) {
-        return sc->NIL;
-    }
-    if (follow) {
-        ans = stat(path, st);
-    } else {
-        ans = lstat(path, st);
-    }
-    if (ans == -1) {
-        sc->free(st);
-        return os_error("stat");
-    }
-    return _s_return(sc, mk_opaque_type(T_FILE_INFO, st));
+    return os_file_info(path, follow);
 }
 
 static pointer prim_file_info_gid(void)
 {
-    struct stat *st;
+    void *stat;
 
-    arg_stat(&st);
-    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_gid));
+    arg_stat(&stat);
+    return arg_err() ? ARG_ERR
+                     : _s_return(sc, mk_integer(sc, os_file_info_gid(stat)));
 }
 
 static pointer prim_file_info_mode(void)
 {
-    struct stat *st;
+    void *stat;
 
-    arg_stat(&st);
-    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_mode));
+    arg_stat(&stat);
+    return arg_err() ? ARG_ERR
+                     : _s_return(sc, mk_integer(sc, os_file_info_mode(stat)));
 }
 
 static pointer prim_file_info_size(void)
 {
-    struct stat *st;
+    void *stat;
 
-    arg_stat(&st);
-    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_size));
+    arg_stat(&stat);
+    return arg_err() ? ARG_ERR
+                     : _s_return(sc, mk_integer(sc, os_file_info_size(stat)));
 }
 
 static pointer prim_file_info_uid(void)
 {
-    struct stat *st;
+    void *stat;
 
-    arg_stat(&st);
-    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_uid));
+    arg_stat(&stat);
+    return arg_err() ? ARG_ERR
+                     : _s_return(sc, mk_integer(sc, os_file_info_uid(stat)));
 }
 
 static pointer prim_file_info_p(void)
@@ -4942,10 +5294,7 @@ static pointer prim_set_file_mode(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (chmod(path, mode) == -1) {
-        return os_error("chmod");
-    }
-    return _s_return(sc, sc->T);
+    return os_set_file_mode(path, mode);
 }
 
 static pointer prim_set_working_directory(void)
@@ -4956,10 +5305,7 @@ static pointer prim_set_working_directory(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (chdir(path) == -1) {
-        return os_error("chdir");
-    }
-    return _s_return(sc, sc->T);
+    return os_set_working_directory(path);
 }
 
 static pointer prim_string_p(void) { return obj_predicate(is_string); }
@@ -4970,34 +5316,7 @@ static pointer prim_vector_p(void) { return obj_predicate(is_vector); }
 
 static pointer prim_working_directory(void)
 {
-    pointer string;
-    char *newbuf;
-    char *buf;
-    size_t cap;
-
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    buf = 0;
-    cap = 128;
-    for (;;) {
-        newbuf = realloc(buf, cap);
-        if (!newbuf) {
-            free(buf);
-            return sc->NIL;
-        }
-        buf = newbuf;
-        if (getcwd(buf, cap)) {
-            break;
-        }
-        if (errno != ERANGE) {
-            return os_error("getcwd");
-        }
-        cap *= 2;
-    }
-    string = mk_string(sc, buf);
-    free(buf);
-    return _s_return(sc, string);
+    return arg_err() ? ARG_ERR : os_working_directory();
 }
 
 static const struct primitive primitives[] = {
@@ -5106,15 +5425,15 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op)
                 /* Check number of arguments */
                 if (n < pcd->min_arity) {
                     ok = 0;
-                    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
-                        pcd->name,
+                    snprintf(msg, STRBUFFSIZE,
+                        "%d %s: needs%s %d argument(s)", sc->op, pcd->name,
                         pcd->min_arity == pcd->max_arity ? "" : " at least",
                         pcd->min_arity);
                 }
                 if (ok && n > pcd->max_arity) {
                     ok = 0;
-                    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
-                        pcd->name,
+                    snprintf(msg, STRBUFFSIZE,
+                        "%d %s: needs%s %d argument(s)", sc->op, pcd->name,
                         pcd->min_arity == pcd->max_arity ? "" : " at most",
                         pcd->max_arity);
                 }
@@ -5530,12 +5849,6 @@ int main(int argc, char **argv)
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
     argv++;
-    if (access(file_name, 0) != 0) {
-        char *p = getenv("TINYSCHEMEINIT");
-        if (p != 0) {
-            file_name = p;
-        }
-    }
     do {
         fin = stdin;
         if (strcmp(file_name, "-") == 0) {
