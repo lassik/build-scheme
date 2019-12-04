@@ -3802,6 +3802,40 @@ static pointer os_error(const char *syscall)
 #endif
 
 #ifdef SCHEME_UNIX
+static pointer os_set_environment_variable(
+    const char *name, const char *value)
+{
+    if (setenv(name, value, 1) == -1) {
+        return os_error("setenv");
+    }
+    return _s_return(sc, sc->T);
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_set_environment_variable(
+    const char *name, const char *value)
+{
+    pointer err;
+    wchar_t *wname;
+    wchar_t *wvalue;
+    BOOL ok;
+
+    if ((err = utf8_to_wstring(name, &wname))) {
+        return err;
+    }
+    if ((err = utf8_to_wstring(name, &wvalue))) {
+        free(wname);
+        return err;
+    }
+    ok = SetEnvironmentVariableW(wname, wvalue);
+    free(wvalue);
+    free(wname);
+    return ok ? _s_return(sc, sc->T) : os_error("SetEnvironmentVariable");
+}
+#endif
+
+#ifdef SCHEME_UNIX
 static pointer os_create_directory(const char *path, long mode)
 {
     if (mkdir(path, mode) == -1) {
@@ -5281,10 +5315,7 @@ static pointer prim_set_environment_variable(void)
     if (arg_err()) {
         return ARG_ERR;
     }
-    if (setenv(name, value, 1) == -1) {
-        return os_error("setenv");
-    }
-    return _s_return(sc, sc->T);
+    return os_set_environment_variable(name, value);
 }
 
 static pointer prim_set_file_mode(void)
