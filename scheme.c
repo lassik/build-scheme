@@ -150,6 +150,9 @@ struct cell {
             struct cell *_car;
             struct cell *_cdr;
         } _cons;
+        struct {
+            void *_p;
+        } _opaque;
     } _object;
 };
 
@@ -368,7 +371,8 @@ enum scheme_types {
     T_MACRO = 12,
     T_PROMISE = 13,
     T_ENVIRONMENT = 14,
-    T_LAST_SYSTEM_TYPE = 14
+    T_FILE_INFO = 15,
+    T_LAST_SYSTEM_TYPE = 15
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -460,6 +464,8 @@ int is_outport(pointer p)
 {
     return is_port(p) && p->_object._port->kind & port_output;
 }
+
+int is_file_info(pointer p) { return type(p) == T_FILE_INFO; }
 
 int is_pair(pointer p) { return (type(p) == T_PAIR); }
 #define car(p) ((p)->_object._cons._car)
@@ -1084,6 +1090,16 @@ static pointer mk_port(scheme *sc, port *p)
     return (x);
 }
 
+static pointer mk_opaque_type(enum scheme_types type_, void *p)
+{
+    pointer x;
+
+    x = get_cell(sc, sc->NIL, sc->NIL);
+    typeflag(x) = T_ATOM | type_;
+    x->_object._opaque._p = p;
+    return x;
+}
+
 pointer mk_foreign_func(scheme *sc, foreign_func f)
 {
     pointer x = get_cell(sc, sc->NIL, sc->NIL);
@@ -1505,6 +1521,8 @@ static void finalize_cell(scheme *sc, pointer a)
             port_close(sc, a, port_input | port_output);
         }
         sc->free(a->_object._port);
+    } else if (is_file_info(a)) {
+        sc->free(a->_object._opaque._p);
     }
 }
 
@@ -2135,6 +2153,8 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
     } else if (is_port(l)) {
         p = sc->strbuff;
         snprintf(p, STRBUFFSIZE, "#<PORT>");
+    } else if (is_file_info(l)) {
+        p = "#<FILE-INFO>";
     } else if (is_number(l)) {
         p = sc->strbuff;
         if (f <= 1 || f == 10) /* f is the base for numbers if > 1 */ {
@@ -4570,6 +4590,21 @@ static int arg_char(long *out)
     return 1;
 }
 
+static int arg_boolean(int *out)
+{
+    pointer arg;
+
+    *out = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (arg == sc->T) {
+        *out = 1;
+        return 1;
+    }
+    return arg == sc->F;
+}
+
 static int arg_long(long *out, long min, long max)
 {
     pointer arg;
@@ -4590,6 +4625,29 @@ static int arg_long(long *out, long min, long max)
     }
     *out = val;
     return 1;
+}
+
+static int arg_stat(struct stat **out)
+{
+    pointer arg;
+    struct stat *st;
+
+    *out = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_file_info(arg)) {
+        return arg_set_err("arg is not a file-info object");
+    }
+    st = arg->_object._opaque._p;
+    *out = st;
+    return 1;
+}
+
+static pointer os_error(const char *syscall)
+{
+    (void)syscall;
+    return _Error_1(sc, strerror(errno), 0);
 }
 
 static pointer prim_make_string(void)
@@ -4620,14 +4678,138 @@ static pointer prim_create_directory(void)
         return ARG_ERR;
     }
     if (mkdir(path, mode) == -1) {
-        return _Error_1(sc, strerror(errno), 0);
+        return os_error("mkdir");
+    }
+    return _s_return(sc, sc->T);
+}
+
+static pointer prim_delete_directory(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (rmdir(path) == -1) {
+        return os_error("rmdir");
+    }
+    return _s_return(sc, sc->T);
+}
+
+static pointer prim_delete_file(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (unlink(path) == -1) {
+        return os_error("unlink");
+    }
+    return _s_return(sc, sc->T);
+}
+
+#define arg_string_or_port arg_string
+
+static pointer prim_file_info(void)
+{
+    struct stat *st;
+    const char *path;
+    int follow, ans;
+
+    arg_string_or_port(&path);
+    arg_boolean(&follow);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (!(st = sc->malloc(sizeof(*st)))) {
+        return sc->NIL;
+    }
+    if (follow) {
+        ans = stat(path, st);
+    } else {
+        ans = lstat(path, st);
+    }
+    if (ans == -1) {
+        sc->free(st);
+        return os_error("stat");
+    }
+    return _s_return(sc, mk_opaque_type(T_FILE_INFO, st));
+}
+
+static pointer prim_file_info_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_file_info(arg));
+}
+
+static pointer prim_file_info_gid(void)
+{
+    struct stat *st;
+
+    arg_stat(&st);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_gid));
+}
+
+static pointer prim_file_info_mode(void)
+{
+    struct stat *st;
+
+    arg_stat(&st);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_mode));
+}
+
+static pointer prim_file_info_size(void)
+{
+    struct stat *st;
+
+    arg_stat(&st);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_size));
+}
+
+static pointer prim_file_info_uid(void)
+{
+    struct stat *st;
+
+    arg_stat(&st);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_uid));
+}
+
+static pointer prim_set_file_mode(void)
+{
+    const char *path;
+    long mode;
+
+    arg_string(&path);
+    arg_long(&mode, 0, 0777);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (chmod(path, mode) == -1) {
+        return os_error("chmod");
     }
     return _s_return(sc, sc->T);
 }
 
 static const struct primitive primitives[] = {
     { "create-directory", prim_create_directory },
+    { "delete-directory", prim_delete_directory },
+    { "delete-file", prim_delete_file },
+    { "file-info", prim_file_info },
+    { "file-info:gid", prim_file_info_gid },
+    { "file-info:mode", prim_file_info_mode },
+    { "file-info:size", prim_file_info_size },
+    { "file-info:uid", prim_file_info_uid },
+    { "file-info?", prim_file_info_p },
     { "make-string", prim_make_string },
+    { "set-file-mode", prim_set_file_mode },
 };
 
 static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
@@ -4667,7 +4849,7 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op)
 {
     sc->op = op;
     for (;;) {
-        if (sc->op < ndispatch) {
+        if (sc->op < (int)ndispatch) {
             op_code_info *pcd = dispatch_table + sc->op;
             if (pcd->name != 0) { /* if built-in function, check arguments */
                 char msg[STRBUFFSIZE];
@@ -4836,7 +5018,7 @@ int scheme_init(scheme *sc)
 
 int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free)
 {
-    int i;
+    size_t i;
     pointer x;
 
     num_zero.is_fixnum = 1;
