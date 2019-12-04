@@ -97,8 +97,6 @@ void putstr(scheme *sc, const char *s);
 int list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
 
-#define _SCHEME_SOURCE
-
 enum scheme_port_kind {
     port_free = 0,
     port_file = 1,
@@ -933,7 +931,7 @@ static pointer get_vector_object(scheme *sc, int len, pointer init)
 
 static void ok_to_freely_gc(scheme *sc) { car(sc->sink) = sc->NIL; }
 
-#if defined TSGRIND
+#ifdef TSGRIND
 static void check_cell_alloced(pointer p, int expect_alloced)
 {
     /* Can't use putstr(sc,str) because callers have no access to
@@ -945,6 +943,9 @@ static void check_cell_alloced(pointer p, int expect_alloced)
         fprintf(stderr, "Cell is not allocated!\n");
     }
 }
+#endif
+
+#ifdef TSGRIND
 static void check_range_alloced(pointer p, int n, int expect_alloced)
 {
     int i;
@@ -952,7 +953,6 @@ static void check_range_alloced(pointer p, int n, int expect_alloced)
         (void)check_cell_alloced(p + i, expect_alloced);
     }
 }
-
 #endif
 
 /* Medium level cell allocation */
