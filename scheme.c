@@ -5828,8 +5828,8 @@ static void usage(void) { generic_usage(stderr, 2); }
 static void version(void)
 {
     printf("(languages scheme)\n");
-    printf("(c-type-bits (int %zu) (long %zu) (pointer %zu))\n", sizeof(int),
-        sizeof(long), sizeof(pointer));
+    printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
+        (int)sizeof(int), (int)sizeof(long), (int)sizeof(void *));
     exit(0);
 }
 
