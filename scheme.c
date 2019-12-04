@@ -4572,21 +4572,6 @@ static pointer os_error(const char *syscall)
     return _Error_1(sc, strerror(errno), 0);
 }
 
-static pointer prim_make_string(void)
-{
-    long len;
-    long fill = ' ';
-
-    arg_long(&len, 0, LONG_MAX);
-    if (arg_left()) {
-        arg_char(&fill);
-    }
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    return _s_return(sc, mk_empty_string(sc, len, fill));
-}
-
 // (append 'a)           => a
 // (append '() 'a)       => a
 // (append '(1) 'a)      => (1 . a)
@@ -4708,17 +4693,6 @@ static pointer prim_file_info(void)
     return _s_return(sc, mk_opaque_type(T_FILE_INFO, st));
 }
 
-static pointer prim_file_info_p(void)
-{
-    pointer arg;
-
-    arg_obj(&arg);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(is_file_info(arg));
-}
-
 static pointer prim_file_info_gid(void)
 {
     struct stat *st;
@@ -4749,6 +4723,17 @@ static pointer prim_file_info_uid(void)
 
     arg_stat(&st);
     return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, st->st_uid));
+}
+
+static pointer prim_file_info_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_file_info(arg));
 }
 
 static pointer get_environment_variable(void)
@@ -4805,6 +4790,21 @@ static pointer prim_length(void)
         Error_1(sc, "length: not a list:", arg);
     }
     return _s_return(sc, mk_integer(sc, n));
+}
+
+static pointer prim_make_string(void)
+{
+    long len;
+    long fill = ' ';
+
+    arg_long(&len, 0, LONG_MAX);
+    if (arg_left()) {
+        arg_char(&fill);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, mk_empty_string(sc, len, fill));
 }
 
 static pointer prim_reverse(void)
