@@ -29,12 +29,17 @@
 #endif
 
 #ifdef SCHEME_UNIX
+#include <sys/types.h>
+#endif
+
+#ifdef SCHEME_UNIX
 #include <sys/stat.h>
 #endif
 
 #ifdef SCHEME_UNIX
 #include <errno.h>
 #include <fcntl.h>
+#include <pwd.h>
 #include <unistd.h>
 #endif
 
@@ -160,6 +165,16 @@ typedef struct port {
         } string;
     } rep;
 } port;
+
+struct user_info {
+    long uid;
+    long gid;
+    pointer name;
+    pointer home_dir;
+    pointer shell;
+    pointer full_name;
+    pointer parsed_full_name;
+};
 
 /* cell structure */
 struct cell {
@@ -388,7 +403,8 @@ enum scheme_types {
     T_PROMISE = 12,
     T_ENVIRONMENT = 13,
     T_FILE_INFO = 14,
-    T_LAST_SYSTEM_TYPE = 14
+    T_USER_INFO = 15,
+    T_LAST_SYSTEM_TYPE = 15
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -484,6 +500,7 @@ int is_outport(pointer p)
 }
 
 int is_file_info(pointer p) { return type(p) == T_FILE_INFO; }
+int is_user_info(pointer p) { return type(p) == T_USER_INFO; }
 
 int is_pair(pointer p) { return (type(p) == T_PAIR); }
 #define car(p) ((p)->_object._cons._car)
@@ -1525,6 +1542,15 @@ static void finalize_cell(scheme *sc, pointer a)
         sc->free(a->_object._port);
     } else if (is_file_info(a)) {
         sc->free(a->_object._opaque._p);
+    } else if (is_user_info(a)) {
+        struct user_info *info = a->_object._opaque._p;
+        finalize_cell(sc, info->name);
+        finalize_cell(sc, info->home_dir);
+        finalize_cell(sc, info->shell);
+        finalize_cell(sc, info->full_name);
+        finalize_cell(
+            sc, info->parsed_full_name); // TODO: this is wrong, it's a list
+        sc->free(info);
     }
 }
 
@@ -2158,6 +2184,8 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
         snprintf(p, STRBUFFSIZE, "#<PORT>");
     } else if (is_file_info(l)) {
         p = "#<FILE-INFO>";
+    } else if (is_user_info(l)) {
+        p = "#<USER-INFO>";
     } else if (is_number(l)) {
         p = sc->strbuff;
         if (f <= 1 || f == 10) /* f is the base for numbers if > 1 */ {
@@ -4156,6 +4184,38 @@ static pointer os_set_working_directory(const char *path)
 }
 #endif
 
+#ifdef SCHEME_UNIX
+static pointer os_user_info(const char *name, long uid)
+{
+    struct user_info *info;
+    struct passwd *pw;
+
+    if (name) {
+        pw = getpwnam(name);
+    } else {
+        pw = getpwuid(uid);
+    }
+    if (!pw) {
+        return os_error("getpw*");
+    }
+    if (!(info = calloc(1, sizeof(*info)))) {
+        return _Error_1(sc, "out of memory", 0);
+    }
+    info->uid = pw->pw_uid;
+    info->gid = pw->pw_gid;
+    info->name = mk_string(sc, pw->pw_name);
+    info->home_dir = mk_string(sc, pw->pw_dir);
+    info->shell = mk_string(sc, pw->pw_shell);
+    info->full_name = mk_string(sc, pw->pw_gecos);
+    info->parsed_full_name = cons(sc, info->full_name, sc->NIL);
+    return _s_return(sc, mk_opaque_type(T_USER_INFO, info));
+}
+#endif
+
+#ifdef SCHEME_WINDOWS
+static pointer os_user_info(const char *name, long uid) {}
+#endif
+
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 {
     pointer x;
@@ -4860,6 +4920,35 @@ static int arg_long(long *out, long min, long max)
     return 1;
 }
 
+static int arg_string_or_long(
+    const char **out_string, long *out_long, long min, long max)
+{
+    pointer arg;
+    long val;
+
+    *out_string = 0;
+    *out_long = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (is_string(arg)) {
+        *out_string = strvalue(arg);
+        return 1;
+    }
+    if (!is_integer(arg)) {
+        return arg_set_err("arg is not an integer or a string");
+    }
+    val = ivalue(arg);
+    if (val < min) {
+        return arg_set_err("arg is too small");
+    }
+    if (val > max) {
+        return arg_set_err("arg is too large");
+    }
+    *out_long = val;
+    return 1;
+}
+
 static int arg_num(num *out)
 {
     pointer arg;
@@ -4888,6 +4977,23 @@ static int arg_stat(void **out)
     }
     st = arg->_object._opaque._p;
     *out = st;
+    return 1;
+}
+
+static int arg_user_info(struct user_info **out)
+{
+    pointer arg;
+    struct user_info *info;
+
+    *out = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_user_info(arg)) {
+        return arg_set_err("arg is not a user-info object");
+    }
+    info = arg->_object._opaque._p;
+    *out = info;
     return 1;
 }
 
@@ -5382,6 +5488,123 @@ static pointer prim_string_p(void) { return obj_predicate(is_string); }
 
 static pointer prim_symbol_p(void) { return obj_predicate(is_symbol); }
 
+/// *Procedure* (*user-info* _uid/name_)
+///
+/// From SRFI 170
+///
+/// Return a fresh user-info object for _uid/name_.
+///
+static pointer prim_user_info(void)
+{
+    const char *name;
+    long uid;
+
+    arg_string_or_long(&name, &uid, 0, LONG_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_user_info(name, uid);
+}
+
+// Procedure (user-info:full-name <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_full_name(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->full_name);
+}
+
+// Procedure (user-info:gid <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_gid(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->gid));
+}
+
+// Procedure (user-info:home-dir <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_home_dir(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->home_dir);
+}
+
+// Procedure (user-info:name <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_name(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->name);
+}
+
+// Procedure (user-info:parsed-full-name <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_parsed_full_name(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->parsed_full_name);
+}
+
+// Procedure (user-info:shell <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_shell(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->shell);
+}
+
+// Procedure (user-info:uid <user-info>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_uid(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->uid));
+}
+
+// Procedure (user-info? <obj>)
+// From SRFI 170
+//
+//
+static pointer prim_user_info_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_user_info(arg));
+}
+
 static pointer prim_vector_p(void) { return obj_predicate(is_vector); }
 
 static pointer prim_working_directory(void)
@@ -5444,6 +5667,15 @@ static const struct primitive primitives[] = {
     { "set-working-directory", prim_set_working_directory },
     { "string?", prim_string_p },
     { "symbol?", prim_symbol_p },
+    { "user-info", prim_user_info },
+    { "user-info:full-name", prim_user_info_full_name },
+    { "user-info:gid", prim_user_info_gid },
+    { "user-info:home-dir", prim_user_info_home_dir },
+    { "user-info:name", prim_user_info_name },
+    { "user-info:parsed-full-name", prim_user_info_parsed_full_name },
+    { "user-info:shell", prim_user_info_shell },
+    { "user-info:uid", prim_user_info_uid },
+    { "user-info?", prim_user_info_p },
     { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
 };
