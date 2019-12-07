@@ -3887,8 +3887,14 @@ static pointer os_get_environment_variables(void)
 static pointer os_set_environment_variable(
     const char *name, const char *value)
 {
-    if (setenv(name, value, 1) == -1) {
-        return os_error("setenv");
+    if (value) {
+        if (setenv(name, value, 1) == -1) {
+            return os_error("setenv");
+        }
+    } else {
+        if (unsetenv(name) == -1) {
+            return os_error("unsetenv");
+        }
     }
     return _s_return(sc, sc->T);
 }
@@ -3906,9 +3912,12 @@ static pointer os_set_environment_variable(
     if ((err = utf8_to_wstring(name, &wname))) {
         return err;
     }
-    if ((err = utf8_to_wstring(name, &wvalue))) {
-        free(wname);
-        return err;
+    wvalue = 0;
+    if (value) {
+        if ((err = utf8_to_wstring(name, &wvalue))) {
+            free(wname);
+            return err;
+        }
     }
     ok = SetEnvironmentVariableW(wname, wvalue);
     free(wvalue);
@@ -5129,6 +5138,23 @@ static pointer prim_current_output_port(void)
     s_return(sc, sc->outport);
 }
 
+/// *Procedure* (*delete-environment-variable!* _name_)
+///
+/// From SRFI 170
+///
+/// Ensure the environment variable _name_ is not currently defined.
+///
+static pointer prim_delete_environment_variable(void)
+{
+    const char *name;
+
+    arg_string(&name);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_set_environment_variable(name, 0);
+}
+
 static pointer prim_delete_directory(void)
 {
     const char *path;
@@ -5289,6 +5315,13 @@ static pointer prim_gc_verbose(void)
     s_retbool(oldval);
 }
 
+/// *Procedure* (*get-environment-variable* _name_)
+///
+/// From R7RS, SRFI 98
+///
+/// Return the value of the environment variable _name_ as a string,
+/// or `#f` if _name_ is not currently defined.
+///
 static pointer prim_get_environment_variable(void)
 {
     const char *name;
@@ -5302,6 +5335,14 @@ static pointer prim_get_environment_variable(void)
     return _s_return(sc, value ? mk_string(sc, value) : sc->F);
 }
 
+/// *Procedure* (*get-environment-variables*)
+///
+/// From R7RS, SRFI 98
+///
+/// Return a fresh association list of all currently defined
+/// environment variables. Mutating the list does not change the
+/// variables.
+///
 static pointer prim_get_environment_variables(void)
 {
     if (arg_err()) {
@@ -5447,6 +5488,12 @@ static pointer prim_reverse(void)
     return _s_return(sc, p);
 }
 
+/// *Procedure* (*set-environment-variable!* _name_)
+///
+/// From SRFI 170
+///
+/// Change the value of the environment variable _name_ to be _value_.
+///
 static pointer prim_set_environment_variable(void)
 {
     const char *name;
@@ -5629,6 +5676,7 @@ static const struct primitive primitives[] = {
     { "current-input-port", prim_current_input_port },
     { "current-output-port", prim_current_output_port },
     { "delete-directory", prim_delete_directory },
+    { "delete-environment-variable!", prim_delete_environment_variable },
     { "delete-file", prim_delete_file },
     { "environment?", prim_environment_p },
     { "eof-object?", prim_eof_object_p },
@@ -5662,7 +5710,7 @@ static const struct primitive primitives[] = {
     { "procedure?", prim_procedure_p },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
-    { "set-environment-variable", prim_set_environment_variable },
+    { "set-environment-variable!", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
     { "set-working-directory", prim_set_working_directory },
     { "string?", prim_string_p },
