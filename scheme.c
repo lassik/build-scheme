@@ -6176,7 +6176,8 @@ static void version(void)
 {
     printf("(languages scheme)\n");
     printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
-        (int)sizeof(int), (int)sizeof(long), (int)sizeof(void *));
+        (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
+        (int)(sizeof(void *) * CHAR_BIT));
     exit(0);
 }
 
