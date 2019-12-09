@@ -1,11 +1,23 @@
-// scheme.c -- a useful Scheme interpreter in one C file
-//
-// Lineage:
-// - Mini-Scheme by Atsushi Moriwaki / kurims.kyoto-u.ac.jp (11/5/1989)
-// - Mini-Scheme modified by R.C. Secrist
-// - Mini-Scheme modified by Akira Kida (version 0.85k4, 1994-05-15)
-// - TinyScheme 1.41 by Dimitrios Souflis, Kevin Cozens, Jonathan S. Shapiro
-// - scheme.c by Lassi Kortela
+/// = Desert Island Scheme -- a useful Scheme interpreter in one C file
+///
+/// == Introduction
+///
+/// *Desert Island Scheme* is a self-contained implementation of a
+/// useful subset of the Scheme programming language. The interpreter
+/// is a derivative of the venerable Mini-Scheme via TinyScheme.
+///
+/// The implementation is also self-documenting. Filtering the source
+/// file for lines starting with `///` produces a user's manual in
+/// AsciiDoc format.
+///
+/// == Lineage
+///
+/// - Mini-Scheme by Atsushi Moriwaki / kurims.kyoto-u.ac.jp (11/5/1989)
+/// - Mini-Scheme modified by R.C. Secrist
+/// - Mini-Scheme modified by Akira Kida (version 0.85k4, 1994-05-15)
+/// - TinyScheme 1.41 by Dimitrios Souflis, Kevin Cozens, Jonathan S. Shapiro
+/// - Desert Island Scheme by Lassi Kortela
+///
 
 #ifdef __unix__
 #define SCHEME_UNIX
@@ -6292,6 +6304,10 @@ static void usage(void) { generic_usage(stderr, 2); }
 
 static void version(void)
 {
+    printf(
+        "This is Desert Island Scheme, a Scheme interpreter in one C file.\n"
+        "The language is a subset of R7RS with parts from many SRFIs.\n\n");
+    printf("(scheme-id desert)\n");
     printf("(languages scheme)\n");
     printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
         (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
