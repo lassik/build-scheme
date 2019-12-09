@@ -1,10 +1,18 @@
-/// = Desert Island Scheme -- a useful Scheme interpreter in one C file
+/// = Desert Island Scheme
 ///
 /// == Introduction
 ///
 /// *Desert Island Scheme* is a self-contained implementation of a
-/// useful subset of the Scheme programming language. The interpreter
-/// is a derivative of the venerable Mini-Scheme via TinyScheme.
+/// useful version of the Scheme programming language.
+///
+/// The language is a subset of R7RS extended with parts of many
+/// SRFIs. Instead of inventing custom procedures just for this
+/// interpreter, we stick to SRFIs so your code can run with few
+/// modifications in other Scheme implementations.
+///
+/// The interpreter is self-contained in one C file which compiles
+/// instantly. It's a derivative of the venerable Mini-Scheme via
+/// TinyScheme.
 ///
 /// The implementation is also self-documenting. Filtering the source
 /// file for lines starting with `///` produces a user's manual in
@@ -5057,25 +5065,191 @@ fail:
 /// == Primitives
 ///
 
-/// *Procedure* (*<* _a_ _b_) +
-/// *Procedure* (*\<=* _a_ _b_) +
-/// *Procedure* (*=* _a_ _b_) +
-/// *Procedure* (*>* _a_ _b_) +
-/// *Procedure* (*>=* _a_ _b_) +
+/// === Equivalence predicates
+
+/// *Procedure* (*eq?* _a_ _b_)
 ///
 /// From R7RS
 ///
 /// Return `#t` if _a_ and _b_ are the same object in memory. Else
+/// return `#f`. Characters and integers are the same if they have the
+/// same integer value. Strings and lists are the same if they are the
+/// same reference. Symbols are the same if their *symbol\->string*
+/// representations are *equal?*.
 ///
-static pointer prim_num_lt(void) { return cmp_primitive(num_lt); }
+static pointer prim_eq_p(void)
+{
+    pointer a, b;
 
-static pointer prim_num_le(void) { return cmp_primitive(num_le); }
+    arg_obj(&a);
+    arg_obj(&b);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(a == b);
+}
 
-static pointer prim_num_eq(void) { return cmp_primitive(num_eq); }
+/// *Procedure* (*eqv?* _a_ _b_)
+///
+/// From R7RS
+///
+/// Return `#t` if the objects _a_ and _b_ have an equivalent value.
+/// Else return `#f`. Integers are considered equivalent if they have
+/// the same numeric value. Characters are considered equivalent if
+/// they have the same integer codepoint. Other objects are considered
+/// equivalent if and only if they are EQ?.
+///
+static pointer prim_eqv_p(void)
+{
+    pointer a, b;
 
-static pointer prim_num_gt(void) { return cmp_primitive(num_gt); }
+    arg_obj(&a);
+    arg_obj(&b);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(eqv(a, b));
+}
 
-static pointer prim_num_ge(void) { return cmp_primitive(num_ge); }
+/// === Booleans
+
+/// *Procedure* (*not* _obj_)
+///
+/// From R7RS
+///
+/// If _obj_ is `#f`, returns `#t`. Else returns `#f`.
+///
+static pointer prim_not(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_false(x));
+}
+
+static pointer prim_boolean_p(void) { return obj_predicate(is_boolean); }
+
+/// === Pairs and lists
+
+/// *Procedure* (*pair?* _obj_)
+///
+/// From R7RS
+///
+static pointer prim_pair_p(void) { return obj_predicate(is_pair); }
+
+/// *Procedure* (*cons* _obj1_ _obj2_)
+///
+/// From R7RS
+///
+static pointer prim_cons(void)
+{
+    pointer a, b;
+
+    arg_obj(&a);
+    arg_obj(&b);
+    return arg_err() ? ARG_ERR : _s_return(sc, cons(sc, a, b));
+}
+
+/// *Procedure* (*car* _pair_)
+///
+/// From R7RS
+///
+/// Return the car ("head") of _pair_.
+///
+static pointer prim_car(void)
+{
+    pointer pair;
+
+    arg_pair(&pair);
+    return arg_err() ? ARG_ERR : _s_return(sc, car(pair));
+}
+
+/// *Procedure* (*cdr* _pair_)
+///
+/// From R7RS
+///
+/// Return the cdr ("tail") of _pair_.
+///
+static pointer prim_cdr(void)
+{
+    pointer pair;
+
+    arg_pair(&pair);
+    return arg_err() ? ARG_ERR : _s_return(sc, cdr(pair));
+}
+
+/// *Procedure* (*null?* _obj_)
+///
+/// From R7RS
+///
+/// If _obj_ is `()`, returns `#t`. Else returns `#f`.
+///
+static pointer prim_null_p(void)
+{
+    pointer x;
+
+    arg_obj(&x);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(x == sc->NIL);
+}
+
+/// *Procedure* (*list?* _obj_)
+///
+/// From R7RS
+///
+/// Return `#t` is _obj_ is a proper list. Else return `#f`. A proper
+/// list is either the empty list `()`, or a pair whose cdr is a
+/// proper list. A "dotted list" is an improper list. This procedure
+/// does not detect circular lists; they will cause an infinite loop.
+///
+static pointer prim_list_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(list_length(sc, arg) >= 0);
+}
+
+/// *Procedure* (*make-list* _k_ _fill_)
+///
+/// From R7RS
+///
+
+/// *Procedure* (*list* _obj_...)
+///
+/// From R7RS
+///
+
+/// *Procedure* (*length* _list_...)
+///
+/// From R7RS
+///
+/// Return the number of elements in _list_, which must be a proper
+/// list. This procedure does not check against circular lists.
+///
+static pointer prim_length(void)
+{
+    pointer arg;
+    int n;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    n = list_length(sc, arg);
+    if (n < 0) {
+        Error_1(sc, "length: not a list:", arg);
+    }
+    return _s_return(sc, mk_integer(sc, n));
+}
 
 // (append 'a)           => a
 // (append '() 'a)       => a
@@ -5099,38 +5273,68 @@ static pointer prim_append(void)
     return _s_return(sc, reverse_in_place(sc, tail, newlist));
 }
 
-static pointer prim_boolean_p(void) { return obj_predicate(is_boolean); }
-
-static pointer prim_car(void)
+static pointer prim_reverse(void)
 {
-    pointer pair;
+    pointer a; /* TODO: must be checked by gc */
+    pointer p;
 
-    arg_pair(&pair);
-    return arg_err() ? ARG_ERR : _s_return(sc, car(pair));
+    arg_obj(&a);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    p = sc->NIL;
+    for (; is_pair(a); a = cdr(a)) {
+        p = cons(sc, car(a), p);
+    }
+    return _s_return(sc, p);
 }
 
-static pointer prim_cdr(void)
-{
-    pointer pair;
+// list-tail
 
-    arg_pair(&pair);
-    return arg_err() ? ARG_ERR : _s_return(sc, cdr(pair));
-}
+// list-ref
+
+// member obj list [compare]
+
+// assoc obj alist [compare]
+
+// list-copy
+
+/// === Symbols
+
+/// === Numbers
+
+///
+
+/// *Procedure* (*<* _a_ _b_) +
+/// *Procedure* (*\<=* _a_ _b_) +
+/// *Procedure* (*=* _a_ _b_) +
+/// *Procedure* (*>* _a_ _b_) +
+/// *Procedure* (*>=* _a_ _b_) +
+///
+/// From R7RS
+///
+/// Return `#t` if _a_ and _b_ are the same object in memory. Else
+///
+static pointer prim_num_lt(void) { return cmp_primitive(num_lt); }
+
+static pointer prim_num_le(void) { return cmp_primitive(num_le); }
+
+static pointer prim_num_eq(void) { return cmp_primitive(num_eq); }
+
+static pointer prim_num_gt(void) { return cmp_primitive(num_gt); }
+
+static pointer prim_num_ge(void) { return cmp_primitive(num_ge); }
 
 static pointer prim_char_p(void) { return obj_predicate(is_character); }
+
+/// === Input and output
 
 // Note, macro object is also a closure.
 // Therefore, (closure? <#MACRO>) ==> #t
 static pointer prim_closure_p(void) { return obj_predicate(is_closure); }
 
-static pointer prim_cons(void)
-{
-    pointer a, b;
-
-    arg_obj(&a);
-    arg_obj(&b);
-    return arg_err() ? ARG_ERR : _s_return(sc, cons(sc, a, b));
-}
+/// === File system
+///
 
 /// *Procedure* (*create-directory* _path_ [_mode_])
 ///
@@ -5242,50 +5446,6 @@ static pointer prim_eof_object_p(void)
         return ARG_ERR;
     }
     s_retbool(x == sc->EOF_OBJ);
-}
-
-/// *Procedure* (*eq?* _a_ _b_)
-///
-/// From R7RS
-///
-/// Return `#t` if _a_ and _b_ are the same object in memory. Else
-/// return `#f`. Characters and integers are the same if they have the
-/// same integer value. Strings and lists are the same if they are the
-/// same reference. Symbols are the same if their *symbol\->string*
-/// representations are *equal?*.
-///
-static pointer prim_eq_p(void)
-{
-    pointer a, b;
-
-    arg_obj(&a);
-    arg_obj(&b);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(a == b);
-}
-
-/// *Procedure* (*eqv?* _a_ _b_)
-///
-/// From R7RS
-///
-/// Return `#t` if the objects _a_ and _b_ have an equivalent value.
-/// Else return `#f`. Integers are considered equivalent if they have
-/// the same numeric value. Characters are considered equivalent if
-/// they have the same integer codepoint. Other objects are considered
-/// equivalent if and only if they are EQ?.
-///
-static pointer prim_eqv_p(void)
-{
-    pointer a, b;
-
-    arg_obj(&a);
-    arg_obj(&b);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(eqv(a, b));
 }
 
 /// *Procedure* (*exit* [_code_])
@@ -5452,33 +5612,6 @@ static pointer prim_input_port_p(void) { return obj_predicate(is_inport); }
 
 static pointer prim_integer_p(void) { return obj_predicate(is_integer); }
 
-static pointer prim_length(void)
-{
-    pointer arg;
-    int n;
-
-    arg_obj(&arg);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    n = list_length(sc, arg);
-    if (n < 0) {
-        Error_1(sc, "length: not a list:", arg);
-    }
-    return _s_return(sc, mk_integer(sc, n));
-}
-
-static pointer prim_list_p(void)
-{
-    pointer arg;
-
-    arg_obj(&arg);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(list_length(sc, arg) >= 0);
-}
-
 static pointer prim_macro_p(void) { return obj_predicate(is_macro); }
 
 static pointer prim_make_string(void)
@@ -5515,40 +5648,6 @@ static pointer prim_new_segment(void)
     s_return(sc, sc->T);
 }
 
-/// *Procedure* (*not* _obj_)
-///
-/// From R7RS
-///
-/// If _obj_ is `#f`, returns `#t`. Else returns `#f`.
-///
-static pointer prim_not(void)
-{
-    pointer x;
-
-    arg_obj(&x);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(is_false(x));
-}
-
-/// *Procedure* (*null?* _obj_)
-///
-/// From R7RS
-///
-/// If _obj_ is `()`, returns `#t`. Else returns `#f`.
-///
-static pointer prim_null_p(void)
-{
-    pointer x;
-
-    arg_obj(&x);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(x == sc->NIL);
-}
-
 static pointer prim_number_p(void) { return obj_predicate(is_number); }
 
 static pointer prim_oblist(void)
@@ -5560,8 +5659,6 @@ static pointer prim_oblist(void)
 }
 
 static pointer prim_output_port_p(void) { return obj_predicate(is_outport); }
-
-static pointer prim_pair_p(void) { return obj_predicate(is_pair); }
 
 static pointer prim_port_p(void) { return obj_predicate(is_port); }
 
@@ -5585,22 +5682,6 @@ static pointer prim_real_p(void)
 {
     /* All numbers are real */
     return obj_predicate(is_number);
-}
-
-static pointer prim_reverse(void)
-{
-    pointer a; /* TODO: must be checked by gc */
-    pointer p;
-
-    arg_obj(&a);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    p = sc->NIL;
-    for (; is_pair(a); a = cdr(a)) {
-        p = cons(sc, car(a), p);
-    }
-    return _s_return(sc, p);
 }
 
 /// *Procedure* (*set-environment-variable!* _name_)
@@ -5650,6 +5731,9 @@ static pointer prim_string_p(void) { return obj_predicate(is_string); }
 
 static pointer prim_symbol_p(void) { return obj_predicate(is_symbol); }
 
+/// === User and group database access
+///
+
 /// *Procedure* (*user-info* _uid/name_)
 ///
 /// From SRFI 170
@@ -5668,19 +5752,49 @@ static pointer prim_user_info(void)
     return os_user_info(name, uid);
 }
 
-/// *Procedure* (*user-info:full-name* _user-info_)
+/// *Procedure* (*user-info?* _obj_)
 ///
 /// From SRFI 170
 ///
-/// Return the "full name", "real name" or "display name" from the
-/// given _user-info_ object.
+/// Return `#t` is _obj_ is a user-info object. Else return `#f`.
 ///
-static pointer prim_user_info_full_name(void)
+static pointer prim_user_info_p(void)
+{
+    pointer arg;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    s_retbool(is_user_info(arg));
+}
+
+/// *Procedure* (*user-info:name* _user-info_)
+///
+/// From SRFI 170
+///
+/// Return the username or "login name" as a string from the given
+/// _user-info_ object. Note that this is usually different from the
+/// "full name" used for display purposes.
+///
+static pointer prim_user_info_name(void)
 {
     struct user_info *info;
 
     arg_user_info(&info);
-    return arg_err() ? ARG_ERR : _s_return(sc, info->full_name);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->name);
+}
+
+/// *Procedure* (*user-info:uid* _user-info_)
+///
+/// From SRFI 170
+///
+static pointer prim_user_info_uid(void)
+{
+    struct user_info *info;
+
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->uid));
 }
 
 /// *Procedure* (*user-info:gid* _user-info_)
@@ -5713,34 +5827,6 @@ static pointer prim_user_info_home_dir(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->home_dir);
 }
 
-/// *Procedure* (*user-info:name* _user-info_)
-///
-/// From SRFI 170
-///
-/// Return the username or "login name" as a string from the given
-/// _user-info_ object. Note that this is usually different from the
-/// "full name" used for display purposes.
-///
-static pointer prim_user_info_name(void)
-{
-    struct user_info *info;
-
-    arg_user_info(&info);
-    return arg_err() ? ARG_ERR : _s_return(sc, info->name);
-}
-
-/// *Procedure* (*user-info:parsed-full-name* _user-info_)
-///
-/// From SRFI 170
-///
-static pointer prim_user_info_parsed_full_name(void)
-{
-    struct user_info *info;
-
-    arg_user_info(&info);
-    return arg_err() ? ARG_ERR : _s_return(sc, info->parsed_full_name);
-}
-
 /// *Procedure* (*user-info:shell* _user-info_)
 ///
 /// From SRFI 170
@@ -5753,33 +5839,31 @@ static pointer prim_user_info_shell(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->shell);
 }
 
-/// *Procedure* (*user-info:uid* _user-info_)
+/// *Procedure* (*user-info:full-name* _user-info_)
 ///
 /// From SRFI 170
 ///
-static pointer prim_user_info_uid(void)
+/// Return the "full name", "real name" or "display name" from the
+/// given _user-info_ object.
+///
+static pointer prim_user_info_full_name(void)
 {
     struct user_info *info;
 
     arg_user_info(&info);
-    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->uid));
+    return arg_err() ? ARG_ERR : _s_return(sc, info->full_name);
 }
 
-/// *Procedure* (*user-info?* _obj_)
+/// *Procedure* (*user-info:parsed-full-name* _user-info_)
 ///
 /// From SRFI 170
 ///
-/// Return `#t` is _obj_ is a user-info object. Else return `#f`.
-///
-static pointer prim_user_info_p(void)
+static pointer prim_user_info_parsed_full_name(void)
 {
-    pointer arg;
+    struct user_info *info;
 
-    arg_obj(&arg);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    s_retbool(is_user_info(arg));
+    arg_user_info(&info);
+    return arg_err() ? ARG_ERR : _s_return(sc, info->parsed_full_name);
 }
 
 static pointer prim_vector_p(void) { return obj_predicate(is_vector); }
