@@ -5042,6 +5042,19 @@ fail:
     return ARG_ERR;
 }
 
+/// == Primitives
+///
+
+/// *Procedure* (*<* _a_ _b_) +
+/// *Procedure* (*\<=* _a_ _b_) +
+/// *Procedure* (*=* _a_ _b_) +
+/// *Procedure* (*>* _a_ _b_) +
+/// *Procedure* (*>=* _a_ _b_) +
+///
+/// From R7RS
+///
+/// Return `#t` if _a_ and _b_ are the same object in memory. Else
+///
 static pointer prim_num_lt(void) { return cmp_primitive(num_lt); }
 
 static pointer prim_num_le(void) { return cmp_primitive(num_le); }
@@ -5107,6 +5120,13 @@ static pointer prim_cons(void)
     return arg_err() ? ARG_ERR : _s_return(sc, cons(sc, a, b));
 }
 
+/// *Procedure* (*create-directory* _path_ [_mode_])
+///
+/// From R7RS
+///
+/// Make a directory named _path_ in the file system. Raise an error
+/// if that fails.
+///
 static pointer prim_create_directory(void)
 {
     const char *path;
@@ -5155,6 +5175,14 @@ static pointer prim_delete_environment_variable(void)
     return os_set_environment_variable(name, 0);
 }
 
+/// *Procedure* (*delete-directory* _path_)
+///
+/// From SRFI 170
+///
+/// Delete the empty directory named _path_ in the file system. Raise
+/// an error in case _path_ does not exist, is not a directory, is not
+/// empty, or cannot be deleted for some reason.
+///
 static pointer prim_delete_directory(void)
 {
     const char *path;
@@ -5166,6 +5194,17 @@ static pointer prim_delete_directory(void)
     return os_delete_directory(path);
 }
 
+/// *Procedure* (*delete-file* _path_)
+///
+/// From SRFI 170
+///
+/// Delete the file named _path_ in the file system. Raise an error in
+/// case _path_ does not exist or cannot be deleted for some reason.
+///
+/// This procedure can delete regular files, pipes, sockets and
+/// devices given the appropriate permissions. It generally cannot
+/// delete directories; use *delete-directory* for that.
+///
 static pointer prim_delete_file(void)
 {
     const char *path;
@@ -5193,6 +5232,16 @@ static pointer prim_eof_object_p(void)
     s_retbool(x == sc->EOF_OBJ);
 }
 
+/// *Procedure* (*eq?* _a_ _b_)
+///
+/// From R7RS
+///
+/// Return `#t` if _a_ and _b_ are the same object in memory. Else
+/// return `#f`. Characters and integers are the same if they have the
+/// same integer value. Strings and lists are the same if they are the
+/// same reference. Symbols are the same if their *symbol\->string*
+/// representations are *equal?*.
+///
 static pointer prim_eq_p(void)
 {
     pointer a, b;
@@ -5205,6 +5254,16 @@ static pointer prim_eq_p(void)
     s_retbool(a == b);
 }
 
+/// *Procedure* (*eqv?* _a_ _b_)
+///
+/// From R7RS
+///
+/// Return `#t` if the objects _a_ and _b_ have an equivalent value.
+/// Else return `#f`. Integers are considered equivalent if they have
+/// the same numeric value. Characters are considered equivalent if
+/// they have the same integer codepoint. Other objects are considered
+/// equivalent if and only if they are EQ?.
+///
 static pointer prim_eqv_p(void)
 {
     pointer a, b;
@@ -5217,6 +5276,14 @@ static pointer prim_eqv_p(void)
     s_retbool(eqv(a, b));
 }
 
+/// *Procedure* (*exit* [_code_])
+///
+/// From R7RS
+///
+/// Perform a normal exit of the Scheme process. If _code_ is given,
+/// it's an integer 0..255 to return as the exit code to the operating
+/// system. The default _code_ is 0 indicating success.
+///
 static pointer prim_exit(void)
 {
     long ret = 0;
@@ -5233,6 +5300,16 @@ static pointer prim_exit(void)
 
 #define arg_string_or_port arg_string
 
+/// *Procedure* (*file-info* _path_ [_follow?_])
+///
+/// From SRFI 170
+///
+/// Return a fresh file-info object for _path_. If _follow?_ is true
+/// the procedure follows symbolic links and reports on the files to
+/// which they refer. If follow? is false the procedure checks the
+/// actual file itself, even if it's a symlink. The follow? flag is
+/// ignored if the file argument is a port.
+///
 static pointer prim_file_info(void)
 {
     const char *path;
@@ -5293,6 +5370,13 @@ static pointer prim_file_info_p(void)
     s_retbool(is_file_info(arg));
 }
 
+/// *Procedure* (*gc* _n_)
+///
+/// From Common Lisp
+///
+/// Run the garbage collector immediately. The GC is automatic and it
+/// is normally not necessary to call this procedure.
+///
 static pointer prim_gc(void)
 {
     if (arg_err()) {
@@ -5400,6 +5484,13 @@ static pointer prim_make_string(void)
     return _s_return(sc, mk_empty_string(sc, len, fill));
 }
 
+/// *Procedure* (*new-segment* _n_)
+///
+/// From TinyScheme
+///
+/// Allocates more memory for Scheme. _n_ is the number of new memory
+/// segments to get.
+///
 static pointer prim_new_segment(void)
 {
     long n;
@@ -5412,6 +5503,12 @@ static pointer prim_new_segment(void)
     s_return(sc, sc->T);
 }
 
+/// *Procedure* (*not* _obj_)
+///
+/// From R7RS
+///
+/// If _obj_ is `#f`, returns `#t`. Else returns `#f`.
+///
 static pointer prim_not(void)
 {
     pointer x;
@@ -5423,6 +5520,12 @@ static pointer prim_not(void)
     s_retbool(is_false(x));
 }
 
+/// *Procedure* (*null?* _obj_)
+///
+/// From R7RS
+///
+/// If _obj_ is `()`, returns `#t`. Else returns `#f`.
+///
 static pointer prim_null_p(void)
 {
     pointer x;
@@ -5553,10 +5656,13 @@ static pointer prim_user_info(void)
     return os_user_info(name, uid);
 }
 
-// Procedure (user-info:full-name <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:full-name* _user-info_)
+///
+/// From SRFI 170
+///
+/// Return the "full name", "real name" or "display name" from the
+/// given _user-info_ object.
+///
 static pointer prim_user_info_full_name(void)
 {
     struct user_info *info;
@@ -5565,10 +5671,13 @@ static pointer prim_user_info_full_name(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->full_name);
 }
 
-// Procedure (user-info:gid <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:gid* _user-info_)
+///
+/// From SRFI 170
+///
+/// Return the group ID as a non-negative integer from the given
+/// _user-info_ object.
+///
 static pointer prim_user_info_gid(void)
 {
     struct user_info *info;
@@ -5577,10 +5686,13 @@ static pointer prim_user_info_gid(void)
     return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->gid));
 }
 
-// Procedure (user-info:home-dir <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:home-dir* _user-info_)
+///
+/// From SRFI 170
+///
+/// Return the user's home directory as a string from the given
+/// _user-info_ object.
+///
 static pointer prim_user_info_home_dir(void)
 {
     struct user_info *info;
@@ -5589,10 +5701,14 @@ static pointer prim_user_info_home_dir(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->home_dir);
 }
 
-// Procedure (user-info:name <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:name* _user-info_)
+///
+/// From SRFI 170
+///
+/// Return the username or "login name" as a string from the given
+/// _user-info_ object. Note that this is usually different from the
+/// "full name" used for display purposes.
+///
 static pointer prim_user_info_name(void)
 {
     struct user_info *info;
@@ -5601,10 +5717,10 @@ static pointer prim_user_info_name(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->name);
 }
 
-// Procedure (user-info:parsed-full-name <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:parsed-full-name* _user-info_)
+///
+/// From SRFI 170
+///
 static pointer prim_user_info_parsed_full_name(void)
 {
     struct user_info *info;
@@ -5613,10 +5729,10 @@ static pointer prim_user_info_parsed_full_name(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->parsed_full_name);
 }
 
-// Procedure (user-info:shell <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:shell* _user-info_)
+///
+/// From SRFI 170
+///
 static pointer prim_user_info_shell(void)
 {
     struct user_info *info;
@@ -5625,10 +5741,10 @@ static pointer prim_user_info_shell(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->shell);
 }
 
-// Procedure (user-info:uid <user-info>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info:uid* _user-info_)
+///
+/// From SRFI 170
+///
 static pointer prim_user_info_uid(void)
 {
     struct user_info *info;
@@ -5637,10 +5753,12 @@ static pointer prim_user_info_uid(void)
     return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, info->uid));
 }
 
-// Procedure (user-info? <obj>)
-// From SRFI 170
-//
-//
+/// *Procedure* (*user-info?* _obj_)
+///
+/// From SRFI 170
+///
+/// Return `#t` is _obj_ is a user-info object. Else return `#f`.
+///
 static pointer prim_user_info_p(void)
 {
     pointer arg;
