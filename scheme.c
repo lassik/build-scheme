@@ -5238,6 +5238,34 @@ static pointer prim_reverse(void)
 
 /// === Symbols
 
+/// === Characters
+
+/// === Strings
+
+/// *Procedure* (*string->list* _string_)
+///
+/// From R7RS
+///
+/// Return a fresh list whose elements are the characters of _string_.
+/// I.e. each element of the list is one character object.
+///
+static pointer prim_string_to_list(void)
+{
+    pointer list;
+    const char *string;
+    const char *p;
+
+    arg_string(&string);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    list = sc->NIL;
+    p = strchr(string, 0);
+    while (p > string) {
+        list = cons(sc, mk_character(sc, *--p), list);
+    }
+    return _s_return(sc, list);
+}
 /// === Numbers
 
 ///
@@ -5896,6 +5924,7 @@ static const struct primitive primitives[] = {
     { "set-environment-variable!", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
     { "set-working-directory", prim_set_working_directory },
+    { "string->list", prim_string_to_list },
     { "string?", prim_string_p },
     { "symbol?", prim_symbol_p },
     { "user-info", prim_user_info },
