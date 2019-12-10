@@ -5658,6 +5658,37 @@ static pointer prim_oblist(void)
     s_return(sc, oblist_all_symbols(sc));
 }
 
+/// *Procedure* (*apropos* _query_)
+///
+/// From Common Lisp
+///
+/// List all top-level symbols matching _query_.
+///
+static pointer prim_apropos(void)
+{
+    const char *query;
+    pointer x, xs;
+    long i, n;
+
+    arg_string(&query);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (!strlen(query)) {
+        return _s_return(sc, sc->F);
+    }
+    n = ivalue_unchecked(sc->oblist);
+    for (i = 0; i < n; i++) {
+        for (xs = vector_elem(sc->oblist, i); xs != sc->NIL; xs = cdr(xs)) {
+            x = car(xs);
+            if (strstr(symname(x), query)) {
+                printf("%s\n", symname(x));
+            }
+        }
+    }
+    return _s_return(sc, sc->F);
+}
+
 static pointer prim_output_port_p(void) { return obj_predicate(is_outport); }
 
 static pointer prim_port_p(void) { return obj_predicate(is_port); }
@@ -5880,6 +5911,7 @@ static const struct primitive primitives[] = {
     { ">", prim_num_gt },
     { ">=", prim_num_ge },
     { "append", prim_append },
+    { "apropos", prim_apropos },
     { "boolean?", prim_boolean_p },
     { "car", prim_car },
     { "cdr", prim_cdr },
