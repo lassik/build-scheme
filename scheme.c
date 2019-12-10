@@ -303,6 +303,8 @@ struct scheme {
 };
 
 static scheme *sc;
+static const char *features_as_strings[] = { "desert", 0 };
+static pointer g_features;
 static pointer g_command_line;
 
 /* operator code */
@@ -1466,6 +1468,7 @@ static void gc(scheme *sc, pointer a, pointer b)
     /* mark system globals */
     mark(sc->oblist);
     mark(sc->global_env);
+    mark(g_features);
     mark(g_command_line);
 
     /* mark current registers */
@@ -5693,6 +5696,18 @@ static pointer prim_exit(void)
     return sc->NIL;
 }
 
+/// *Procedure* (*features*)
+///
+/// From R7RS
+///
+/// Return a list of the feature identifiers which *cond-expand*
+/// treats as true.
+///
+static pointer prim_features(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, g_features);
+}
+
 /// *Procedure* (*pid*)
 ///
 /// From R7RS
@@ -6263,6 +6278,7 @@ static const struct primitive primitives[] = {
     { "eq?", prim_eq_p },
     { "eqv?", prim_eqv_p },
     { "exit", prim_exit },
+    { "features", prim_features },
     { "file-exists?", prim_file_exists_p },
     { "file-info", prim_file_info },
     { "file-info:gid", prim_file_info_gid },
@@ -6816,6 +6832,7 @@ int main(int argc, char **argv)
     }
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
+    g_features = mk_string_list(features_as_strings, 1);
     g_command_line = mk_string_list((const char **)argv, 0);
     scheme_define(sc, sc->global_env, mk_symbol(sc, "script-real-path"),
         script ? os_real_path_or_false(script) : sc->F);
