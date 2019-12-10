@@ -2812,12 +2812,15 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
         if (sc->tracing) {
             putstr(sc, "\nGives: ");
         }
-        if (file_interactive(sc)) {
+        if (!file_interactive(sc)) {
+            s_return(sc, sc->value);
+        } else if (sc->loadport->_object._port->kind & port_saw_EOF) {
+            putstr(sc, "\n");
+            s_return(sc, sc->value);
+        } else {
             sc->print_flag = 1;
             sc->args = sc->value;
             s_goto(sc, OP_P0LIST);
-        } else {
-            s_return(sc, sc->value);
         }
 
     case OP_EVAL: /* main part of evaluation */
