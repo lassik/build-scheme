@@ -1035,10 +1035,6 @@ pointer _cons(scheme *sc, pointer a, pointer b, int immutable)
     return (x);
 }
 
-/* ========== oblist implementation  ========== */
-
-#ifndef USE_OBJECT_LIST
-
 static int hash_fn(const char *key, int table_size);
 
 static pointer oblist_initial_value(scheme *sc)
@@ -1092,40 +1088,6 @@ static pointer oblist_all_symbols(scheme *sc)
     }
     return ob_list;
 }
-
-#else
-
-static pointer oblist_initial_value(scheme *sc) { return sc->NIL; }
-
-static pointer oblist_find_by_name(scheme *sc, const char *name)
-{
-    pointer x;
-    char *s;
-
-    for (x = sc->oblist; x != sc->NIL; x = cdr(x)) {
-        s = symname(car(x));
-        /* case-insensitive, per R5RS section 2. */
-        if (our_stricmp(name, s) == 0) {
-            return car(x);
-        }
-    }
-    return sc->NIL;
-}
-
-/* returns the new symbol */
-static pointer oblist_add_by_name(scheme *sc, const char *name)
-{
-    pointer x;
-
-    x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
-    typeflag(x) = T_SYMBOL;
-    setimmutable(car(x));
-    sc->oblist = immutable_cons(sc, x, sc->oblist);
-    return x;
-}
-static pointer oblist_all_symbols(scheme *sc) { return sc->oblist; }
-
-#endif
 
 static pointer mk_port(scheme *sc, port *p)
 {
