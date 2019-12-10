@@ -139,9 +139,6 @@ void scheme_set_input_port_string(
 void scheme_set_output_port_file(scheme *sc, FILE *fin);
 void scheme_set_output_port_string(
     scheme *sc, char *start, char *past_the_end);
-pointer scheme_apply0(scheme *sc, const char *procname);
-pointer scheme_call(scheme *sc, pointer func, pointer args);
-pointer scheme_eval(scheme *sc, pointer obj);
 void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
@@ -368,10 +365,6 @@ void setimmutable(pointer p);
 
 #define BACKQUOTE '`'
 #define DELIMITERS "()\";\f\t\v\n\r "
-
-/*
- *  Basic memory allocation units
- */
 
 static int our_stricmp(const char *s1, const char *s2)
 {
