@@ -4062,21 +4062,31 @@ static pointer os_working_directory(void)
 #endif
 
 #ifdef SCHEME_UNIX
+static pointer os_real_path_or_false(const char *path)
+{
+    pointer ans;
+    char *real;
+
+    if (!(real = calloc(1, PATH_MAX + 1))) {
+        die("out of memory");
+    }
+    if (realpath(path, real)) {
+        ans = mk_string(sc, real);
+    } else {
+        ans = sc->F;
+    }
+    free(real);
+    return ans;
+}
+#endif
+
+#ifdef SCHEME_UNIX
 static pointer os_real_path(const char *path)
 {
     pointer ans;
-    char *buf;
 
-    if (!(buf = calloc(1, PATH_MAX + 1))) {
-        die("out of memory");
-    }
-    if (realpath(path, buf)) {
-        ans = _s_return(sc, mk_string(sc, buf));
-    } else {
-        ans = os_error("stat");
-    }
-    free(buf);
-    return ans;
+    ans = os_real_path_or_false(path);
+    return (ans == sc->F) ? os_error("stat") : _s_return(sc, ans);
 }
 #endif
 
