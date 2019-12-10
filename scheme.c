@@ -5662,12 +5662,21 @@ static pointer prim_eof_object_p(void)
     s_retbool(x == sc->EOF_OBJ);
 }
 
+/// *Constant* *script-real-path*
+///
+/// Custom in Desert Island Scheme
+///
+/// Holds the real-path of the Scheme script being run. If not running
+/// a script, the value is `#f`.
+///
+
 /// *Procedure* (*command-line*)
 ///
 /// From R7RS
 ///
 /// Return the command line arguments passed to the Scheme script as a
-/// list of strings. The first string is the script name.
+/// list of strings. The first string is the script name. If not
+/// running a script, the value if the empty list `()`.
 ///
 static pointer prim_command_line(void)
 {
