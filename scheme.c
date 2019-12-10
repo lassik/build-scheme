@@ -111,10 +111,6 @@ extern char **environ;
 #define USE_ERROR_HOOK 1
 #endif
 
-#ifndef USE_COLON_HOOK /* Enable qualified qualifier */
-#define USE_COLON_HOOK 1
-#endif
-
 #ifndef SHOW_ERROR_LINE /* Show error line in file */
 #define SHOW_ERROR_LINE 1
 #endif
@@ -265,7 +261,6 @@ struct scheme {
     pointer UNQUOTE; /* pointer to symbol unquote */
     pointer UNQUOTESP; /* pointer to symbol unquote-splicing */
     pointer FEED_TO; /* => */
-    pointer COLON_HOOK; /* *colon-hook* */
     pointer ERROR_HOOK; /* *error-hook* */
     pointer SHARP_HOOK; /* *sharp-hook* */
     pointer COMPILE_HOOK; /* *compile-hook* */
@@ -1315,16 +1310,6 @@ static pointer mk_atom(scheme *sc, char *q)
     char c, *p;
     int has_dec_point = 0;
     int has_fp_exp = 0;
-
-#if USE_COLON_HOOK
-    if ((p = strstr(q, "::")) != 0) {
-        *p = 0;
-        return cons(sc, sc->COLON_HOOK,
-            cons(sc,
-                cons(sc, sc->QUOTE, cons(sc, mk_atom(sc, p + 2), sc->NIL)),
-                cons(sc, mk_symbol(sc, our_strlwr(q)), sc->NIL)));
-    }
-#endif
 
     p = q;
     c = *p++;
@@ -6275,7 +6260,6 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free)
     sc->UNQUOTE = mk_symbol(sc, "unquote");
     sc->UNQUOTESP = mk_symbol(sc, "unquote-splicing");
     sc->FEED_TO = mk_symbol(sc, "=>");
-    sc->COLON_HOOK = mk_symbol(sc, "*colon-hook*");
     sc->ERROR_HOOK = mk_symbol(sc, "*error-hook*");
     sc->SHARP_HOOK = mk_symbol(sc, "*sharp-hook*");
     sc->COMPILE_HOOK = mk_symbol(sc, "*compile-hook*");
