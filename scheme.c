@@ -6409,7 +6409,6 @@ int main(int argc, char **argv)
     scheme_set_output_port_file(sc, stdout);
     args = mk_string_list(argv);
     scheme_define(sc, sc->global_env, mk_symbol(sc, "*args*"), args);
-    scheme_load_file_or_die("init.scm");
     if (script) {
         scheme_load_file_or_die(script);
     } else {
