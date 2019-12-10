@@ -262,7 +262,6 @@ struct scheme {
     pointer UNQUOTESP; /* pointer to symbol unquote-splicing */
     pointer FEED_TO; /* => */
     pointer ERROR_HOOK; /* *error-hook* */
-    pointer SHARP_HOOK; /* *sharp-hook* */
     pointer COMPILE_HOOK; /* *compile-hook* */
 
     pointer free_cell; /* pointer to top of free cells */
@@ -4541,13 +4540,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op)
             setimmutable(x);
             s_return(sc, x);
         case TOK_SHARP: {
-            pointer f = find_slot_in_env(sc, sc->envir, sc->SHARP_HOOK, 1);
-            if (f == sc->NIL) {
-                Error_0(sc, "undefined sharp expression");
-            } else {
-                sc->code = cons(sc, slot_value_in_env(f), sc->NIL);
-                s_goto(sc, OP_EVAL);
-            }
+            Error_0(sc, "undefined sharp expression");
         }
         case TOK_SHARP_CONST:
             if ((x = mk_sharp_const(sc, readstr_upto(sc, DELIMITERS)))
@@ -6261,7 +6254,6 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free)
     sc->UNQUOTESP = mk_symbol(sc, "unquote-splicing");
     sc->FEED_TO = mk_symbol(sc, "=>");
     sc->ERROR_HOOK = mk_symbol(sc, "*error-hook*");
-    sc->SHARP_HOOK = mk_symbol(sc, "*sharp-hook*");
     sc->COMPILE_HOOK = mk_symbol(sc, "*compile-hook*");
 
     return !sc->no_memory;
