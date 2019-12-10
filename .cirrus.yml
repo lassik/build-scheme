@@ -36,7 +36,7 @@ ubuntu_task:
 freebsd_task:
   freebsd_instance:
     image: freebsd-12-0-release-amd64
-  compile_script: ./build-strict.sh
+  compile_script: CC=clang ./build-strict.sh
 macos_task:
   osx_instance:
     image: mojave-base
@@ -49,7 +49,7 @@ cygwin_task:
     - choco install -y --no-progress cygwin
     - c:\tools\cygwin\cygwinsetup -q -P binutils,gcc-core
   compile_script:
-    - c:\tools\cygwin\bin\bash --login "%CD%\scripts\build.sh"
+    - c:\tools\cygwin\bin\bash --login "%CD%\build-strict.sh"
 msys_task:
   windows_container:
     image: cirrusci/windowsservercore:cmake
@@ -58,4 +58,4 @@ msys_task:
     - set PATH=c:\tools\msys64\bin;c:\tools\msys64\usr\bin;%PATH%
     - pacman --noconfirm -S gcc
   compile_script:
-    - c:\tools\msys64\usr\bin\bash --login "%CD%\scripts\build.sh"
+    - c:\tools\msys64\usr\bin\bash --login "%CD%\build-strict.sh"
