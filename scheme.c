@@ -6816,6 +6816,8 @@ int main(int argc, char **argv)
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
     g_command_line = mk_string_list(argv);
+    scheme_define(sc, sc->global_env, mk_symbol(sc, "script-real-path"),
+        script ? os_real_path_or_false(script) : sc->F);
     if (script) {
         scheme_load_file_or_die(script);
     } else {
