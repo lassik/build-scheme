@@ -2352,16 +2352,17 @@ static pointer revappend(scheme *sc, pointer a, pointer b)
     return sc->F; /* signal an error */
 }
 
-static pointer mk_string_list(char **sv)
+static pointer mk_string_list(const char **sv, int want_symbols)
 {
-    pointer list;
+    pointer x, xs;
     const char *s;
 
-    list = sc->NIL;
+    xs = sc->NIL;
     for (; (s = *sv); sv++) {
-        list = cons(sc, mk_string(sc, s), list);
+        x = want_symbols ? mk_symbol(sc, s) : mk_string(sc, s);
+        xs = cons(sc, x, xs);
     }
-    return reverse_in_place(sc, sc->NIL, list);
+    return reverse_in_place(sc, sc->NIL, xs);
 }
 
 /* equivalence of atoms */
@@ -6815,7 +6816,7 @@ int main(int argc, char **argv)
     }
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
-    g_command_line = mk_string_list(argv);
+    g_command_line = mk_string_list((const char **)argv, 0);
     scheme_define(sc, sc->global_env, mk_symbol(sc, "script-real-path"),
         script ? os_real_path_or_false(script) : sc->F);
     if (script) {
