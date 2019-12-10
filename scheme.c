@@ -79,6 +79,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef SCHEME_WINDOWS
 #define snprintf _snprintf
@@ -207,6 +208,10 @@ struct cell {
             struct cell *_car;
             struct cell *_cdr;
         } _cons;
+        struct {
+            long sec;
+            long nsec;
+        } _timespec;
         struct {
             void *_p;
         } _opaque;
@@ -415,7 +420,8 @@ enum scheme_types {
     T_ENVIRONMENT = 13,
     T_FILE_INFO = 14,
     T_USER_INFO = 15,
-    T_LAST_SYSTEM_TYPE = 15
+    T_TIMESPEC = 16,
+    T_LAST_SYSTEM_TYPE = 16
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -441,6 +447,12 @@ static int num_gt(num a, num b);
 static int num_ge(num a, num b);
 static int num_lt(num a, num b);
 static int num_le(num a, num b);
+
+static void die(const char *msg)
+{
+    fprintf(stderr, "%s\n", msg);
+    exit(2);
+}
 
 static int is_zero_double(double x);
 static int num_is_integer(pointer p)
@@ -512,6 +524,10 @@ int is_outport(pointer p)
 
 int is_file_info(pointer p) { return type(p) == T_FILE_INFO; }
 int is_user_info(pointer p) { return type(p) == T_USER_INFO; }
+
+int is_timespec(pointer p) { return type(p) == T_TIMESPEC; }
+long timespec_sec(pointer p) { return p->_object._timespec.sec; }
+long timespec_nsec(pointer p) { return p->_object._timespec.nsec; }
 
 int is_pair(pointer p) { return (type(p) == T_PAIR); }
 #define car(p) ((p)->_object._cons._car)
@@ -1234,6 +1250,17 @@ pointer mk_symbol(scheme *sc, const char *name)
         x = oblist_add_by_name(sc, name);
         return (x);
     }
+}
+
+pointer mk_timespec(scheme *sc, long sec, long nsec)
+{
+    pointer x;
+
+    x = get_cell(sc, sc->NIL, sc->NIL);
+    typeflag(x) = T_ATOM | T_TIMESPEC;
+    x->_object._timespec.sec = sec;
+    x->_object._timespec.nsec = nsec;
+    return x;
 }
 
 pointer gensym(scheme *sc)
@@ -2149,6 +2176,9 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
         p = "#<FILE-INFO>";
     } else if (is_user_info(l)) {
         p = "#<USER-INFO>";
+    } else if (is_timespec(l)) {
+        p = sc->strbuff;
+        snprintf(p, STRBUFFSIZE, "#<timespec %ld>", timespec_sec(l));
     } else if (is_number(l)) {
         p = sc->strbuff;
         if (f <= 1 || f == 10) /* f is the base for numbers if > 1 */ {
@@ -4029,6 +4059,40 @@ static pointer os_working_directory(void)
 #endif
 
 #ifdef SCHEME_UNIX
+static pointer os_real_path(const char *path)
+{
+    pointer ans;
+    char *buf;
+
+    if (!(buf = calloc(1, PATH_MAX + 1))) {
+        die("out of memory");
+    }
+    if (realpath(path, buf)) {
+        ans = _s_return(sc, mk_string(sc, buf));
+    } else {
+        ans = os_error("stat");
+    }
+    free(buf);
+    return ans;
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_file_exists_p(const char *path)
+{
+    struct stat st;
+
+    if (stat(path, &st) == 0) {
+        return _s_return(sc, sc->T);
+    }
+    if ((errno == ENOENT) || (errno == ENOTDIR)) {
+        return _s_return(sc, sc->F);
+    }
+    return os_error("stat");
+}
+#endif
+
+#ifdef SCHEME_UNIX
 static pointer os_file_info(const char *path, int follow)
 {
     struct stat *st;
@@ -4060,6 +4124,14 @@ static long os_file_info_uid(struct stat *st) { return st->st_uid; }
 
 #ifdef SCHEME_UNIX
 static long os_file_info_mode(struct stat *st) { return st->st_mode; }
+#endif
+
+#ifdef SCHEME_UNIX
+static void os_file_info_mtime(struct stat *st, long *out_sec, long *out_nsec)
+{
+    *out_sec = st->st_mtimespec.tv_sec;
+    *out_nsec = st->st_mtimespec.tv_nsec;
+}
 #endif
 
 #ifdef SCHEME_UNIX
@@ -4963,6 +5035,22 @@ static int arg_user_info(struct user_info **out)
     return 1;
 }
 
+static int arg_timespec(long *out_sec, long *out_nsec)
+{
+    pointer arg;
+
+    *out_sec = *out_nsec = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_timespec(arg)) {
+        return arg_set_err("arg is not a timespec object");
+    }
+    *out_sec = timespec_sec(arg);
+    *out_nsec = timespec_nsec(arg);
+    return 1;
+}
+
 static pointer obj_predicate(int predicate(pointer))
 {
     pointer x;
@@ -5298,6 +5386,111 @@ static pointer prim_char_p(void) { return obj_predicate(is_character); }
 // Therefore, (closure? <#MACRO>) ==> #t
 static pointer prim_closure_p(void) { return obj_predicate(is_closure); }
 
+/// === System interface
+
+/// *Procedure* (*posix-time*) -> _timespec_ [SRFI 170]
+///
+/// Return the current time in UTC since the Unix epoch (1970-01-01
+/// 00:00:00) as a _timespec_ object.
+///
+static pointer prim_posix_time(void)
+{
+    struct timespec tv;
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (clock_gettime(CLOCK_REALTIME, &tv) == -1) {
+        return os_error("clock_gettime");
+    }
+    return _s_return(sc, mk_timespec(sc, tv.tv_sec, tv.tv_nsec));
+}
+
+/// *Procedure* (*timespec* _seconds_ _nanoseconds_) -> _timespec_
+///
+/// From SRFI 174
+///
+/// Return a _timespec_ object made of the given _seconds_ and
+/// _nanoseconds_ components. Both are integers. _seconds_ may be
+/// negative; _nanoseconds_ must be in the range 0..999999999.
+///
+static pointer prim_timespec(void)
+{
+    long sec, nsec;
+
+    arg_long(&sec, LONG_MIN, LONG_MAX);
+    arg_long(&nsec, 0, 999999999L);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_timespec(sc, sec, nsec));
+}
+
+/// *Procedure* (*timespec-seconds*) -> _integer_
+///
+/// From SRFI 174
+///
+/// Return the seconds component of a _timespec_ object.
+///
+static pointer prim_timespec_seconds(void)
+{
+    long sec, nsec;
+
+    arg_timespec(&sec, &nsec);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, sec));
+}
+
+/// *Procedure* (*timespec-nanoseconds* _timespec_) -> _natural_
+///
+/// From SRFI 174
+///
+/// Return the nanoseconds component of a _timespec_ object.
+///
+static pointer prim_timespec_nanoseconds(void)
+{
+    long sec, nsec;
+
+    arg_timespec(&sec, &nsec);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, nsec));
+}
+
+/// *Procedure* (*timespec=?* _timespec1_ _timespec2_)
+///
+/// From SRFI 174
+///
+/// Return `#t` if _timespec1_ and _timespec2_ represent the same
+/// instant in time. Else return `#f`.
+///
+static pointer prim_timespec_eq_p(void)
+{
+    long sec1, nsec1;
+    long sec2, nsec2;
+
+    arg_timespec(&sec1, &nsec1);
+    arg_timespec(&sec2, &nsec2);
+    return arg_err()
+        ? ARG_ERR
+        : _s_return(sc, ((sec1 == sec2) && (nsec1 == nsec2)) ? sc->T : sc->F);
+}
+
+/// *Procedure* (*timespec<?* _timespec1_ _timespec2_)
+///
+/// From SRFI 174
+///
+/// Return `#t` if _timespec1_ represents an earlier instant in time
+/// than _timespec2_. Else return `#f`.
+///
+static pointer prim_timespec_lt_p(void)
+{
+    long sec1, nsec1;
+    long sec2, nsec2;
+
+    arg_timespec(&sec1, &nsec1);
+    arg_timespec(&sec2, &nsec2);
+    return arg_err()
+        ? ARG_ERR
+        : _s_return(sc,
+            ((sec1 < sec2) || ((sec1 == sec2) && (nsec1 < nsec2))) ? sc->T
+                                                                   : sc->F);
+}
+
 /// === File system
 ///
 
@@ -5354,6 +5547,45 @@ static pointer prim_delete_environment_variable(void)
         return ARG_ERR;
     }
     return os_set_environment_variable(name, 0);
+}
+
+/// *Procedure* (*real-path* _path_) => _string_
+///
+/// From R7RS
+///
+/// Return an absolute pathname derived from _path_ that names the
+/// same file and whose resolution does not involve `.` or `..` or
+/// symbolic links.
+///
+static pointer prim_real_path(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_real_path(path);
+}
+
+/// *Procedure* (*file-exists?* _path_)
+///
+/// From R7RS
+///
+/// Return `#t` if there is a file, directory or other file system
+/// object under the pathname _path_. Else return `#f`. Symbolic links
+/// are followed; a symbolic link pointing to a nonexistent pathname
+/// returns `#f`.
+///
+static pointer prim_file_exists_p(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_file_exists_p(path);
 }
 
 /// *Procedure* (*delete-directory* _path_)
@@ -5435,6 +5667,96 @@ static pointer prim_exit(void)
     return sc->NIL;
 }
 
+/// *Procedure* (*pid*)
+///
+/// From R7RS
+///
+/// Return the process ID of the Scheme process.
+///
+static pointer prim_pid(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, getpid()));
+}
+
+/// *Procedure* (*umask*)
+///
+/// From R7RS
+///
+/// Return the current umask (Unix file permission bitmask) of the
+/// Scheme process.
+///
+static pointer prim_umask(void)
+{
+    return arg_err() ? ARG_ERR
+                     : _s_return(sc, mk_integer(sc, umask(umask(0777))));
+}
+
+/// *Procedure* (*set-umask* _new-umask_)
+///
+/// From R7RS
+///
+/// Set the current umask of the Scheme process to _new-umask_. Return
+/// the *old* umask.
+///
+static pointer prim_set_umask(void)
+{
+    long u;
+
+    arg_long(&u, 0, 0777);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, umask(u)));
+}
+
+/// *Procedure* (*user-uid*)
+///
+/// From SRFI 170
+///
+///
+static pointer prim_user_uid(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, getuid()));
+}
+
+/// *Procedure* (*user-gid*)
+///
+/// From SRFI 170
+///
+///
+static pointer prim_user_gid(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, getgid()));
+}
+
+/// *Procedure* (*user-effective-uid*)
+///
+/// From SRFI 170
+///
+///
+static pointer prim_user_effective_uid(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, geteuid()));
+}
+
+/// *Procedure* (*user-effective-gid*)
+///
+/// From SRFI 170
+///
+///
+static pointer prim_user_effective_gid(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, getegid()));
+}
+
+/// *Procedure* (*user-supplementary-gids*)
+///
+/// From SRFI 170
+///
+///
+static pointer prim_user_supplementary_gids(void)
+{
+    // getgroups()
+    return _s_return(sc, sc->F);
+}
+
 #define arg_string_or_port arg_string
 
 /// *Procedure* (*file-info* _path_ [_follow?_])
@@ -5476,6 +5798,26 @@ static pointer prim_file_info_mode(void)
     arg_stat(&stat);
     return arg_err() ? ARG_ERR
                      : _s_return(sc, mk_integer(sc, os_file_info_mode(stat)));
+}
+
+/// *Procedure* (*file-info:mtime* _file-info_) => _timespec_
+///
+/// From SRFI 170
+///
+/// Return the last modification time in a _file-info_ as a
+/// _timespec_.
+///
+static pointer prim_file_info_mtime(void)
+{
+    void *stat;
+    long sec, nsec;
+
+    arg_stat(&stat);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    os_file_info_mtime(stat, &sec, &nsec);
+    return _s_return(sc, mk_timespec(sc, sec, nsec));
 }
 
 static pointer prim_file_info_size(void)
@@ -5894,9 +6236,11 @@ static const struct primitive primitives[] = {
     { "eq?", prim_eq_p },
     { "eqv?", prim_eqv_p },
     { "exit", prim_exit },
+    { "file-exists?", prim_file_exists_p },
     { "file-info", prim_file_info },
     { "file-info:gid", prim_file_info_gid },
     { "file-info:mode", prim_file_info_mode },
+    { "file-info:mtime", prim_file_info_mtime },
     { "file-info:size", prim_file_info_size },
     { "file-info:uid", prim_file_info_uid },
     { "file-info?", prim_file_info_p },
@@ -5917,16 +6261,29 @@ static const struct primitive primitives[] = {
     { "oblist", prim_oblist },
     { "output-port?", prim_output_port_p },
     { "pair?", prim_pair_p },
+    { "pid", prim_pid },
     { "port?", prim_port_p },
+    { "posix-time", prim_posix_time },
     { "procedure?", prim_procedure_p },
+    { "real-path", prim_real_path },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
     { "set-environment-variable!", prim_set_environment_variable },
     { "set-file-mode", prim_set_file_mode },
+    { "set-umask", prim_set_umask },
     { "set-working-directory", prim_set_working_directory },
     { "string->list", prim_string_to_list },
     { "string?", prim_string_p },
     { "symbol?", prim_symbol_p },
+    { "timespec", prim_timespec },
+    { "timespec-nanoseconds", prim_timespec_nanoseconds },
+    { "timespec-seconds", prim_timespec_seconds },
+    { "timespec<?", prim_timespec_lt_p },
+    { "timespec=?", prim_timespec_eq_p },
+    { "umask", prim_umask },
+    { "user-effective-gid", prim_user_effective_gid },
+    { "user-effective-uid", prim_user_effective_uid },
+    { "user-gid", prim_user_gid },
     { "user-info", prim_user_info },
     { "user-info:full-name", prim_user_info_full_name },
     { "user-info:gid", prim_user_info_gid },
@@ -5936,6 +6293,8 @@ static const struct primitive primitives[] = {
     { "user-info:shell", prim_user_info_shell },
     { "user-info:uid", prim_user_info_uid },
     { "user-info?", prim_user_info_p },
+    { "user-supplementary-gids", prim_user_supplementary_gids },
+    { "user-uid", prim_user_uid },
     { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
 };
@@ -6337,12 +6696,6 @@ void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename)
     if (sc->retcode == 0) {
         sc->retcode = sc->nesting != 0;
     }
-}
-
-static void die(const char *msg)
-{
-    fprintf(stderr, "%s\n", msg);
-    exit(2);
 }
 
 static void scheme_load_file_or_die(const char *filename)
