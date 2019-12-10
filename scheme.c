@@ -38,6 +38,7 @@
 #ifdef __APPLE__
 #ifdef __MACH__
 #define SCHEME_UNIX
+#define st_mtim st_mtimespec
 #endif
 #endif
 
@@ -4129,8 +4130,8 @@ static long os_file_info_mode(struct stat *st) { return st->st_mode; }
 #ifdef SCHEME_UNIX
 static void os_file_info_mtime(struct stat *st, long *out_sec, long *out_nsec)
 {
-    *out_sec = st->st_mtimespec.tv_sec;
-    *out_nsec = st->st_mtimespec.tv_nsec;
+    *out_sec = st->st_mtim.tv_sec;
+    *out_nsec = st->st_mtim.tv_nsec;
 }
 #endif
 
