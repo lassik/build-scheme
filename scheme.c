@@ -303,6 +303,7 @@ struct scheme {
 };
 
 static scheme *sc;
+static pointer g_command_line;
 
 /* operator code */
 enum scheme_opcodes {
@@ -1465,6 +1466,7 @@ static void gc(scheme *sc, pointer a, pointer b)
     /* mark system globals */
     mark(sc->oblist);
     mark(sc->global_env);
+    mark(g_command_line);
 
     /* mark current registers */
     mark(sc->args);
@@ -5646,6 +5648,18 @@ static pointer prim_eof_object_p(void)
     s_retbool(x == sc->EOF_OBJ);
 }
 
+/// *Procedure* (*command-line*)
+///
+/// From R7RS
+///
+/// Return the command line arguments passed to the Scheme script as a
+/// list of strings. The first string is the script name.
+///
+static pointer prim_command_line(void)
+{
+    return arg_err() ? ARG_ERR : _s_return(sc, g_command_line);
+}
+
 /// *Procedure* (*exit* [_code_])
 ///
 /// From R7RS
@@ -6225,6 +6239,7 @@ static const struct primitive primitives[] = {
     { "cdr", prim_cdr },
     { "char?", prim_char_p },
     { "closure?", prim_closure_p },
+    { "command-line", prim_command_line },
     { "cons", prim_cons },
     { "create-directory", prim_create_directory },
     { "current-input-port", prim_current_input_port },
@@ -6754,7 +6769,6 @@ int main(int argc, char **argv)
     const char *progname;
     const char *script;
     const char *arg;
-    pointer args;
     int hflag, vflag, retcode;
 
     (void)argc;
@@ -6762,8 +6776,8 @@ int main(int argc, char **argv)
     hflag = vflag = 0;
     progname = *argv++;
     while ((arg = *argv)) {
-        argv++;
         if (!strcmp(arg, "--")) {
+            argv++;
             break;
         } else if (!strcmp(arg, "-h") || !strcmp(arg, "-help")
             || !strcmp(arg, "--help")) {
@@ -6776,6 +6790,7 @@ int main(int argc, char **argv)
             script = arg;
             break;
         }
+        argv++;
     }
     if (hflag) {
         generic_usage(stdout, 0);
@@ -6790,8 +6805,7 @@ int main(int argc, char **argv)
     }
     scheme_set_input_port_file(sc, stdin);
     scheme_set_output_port_file(sc, stdout);
-    args = mk_string_list(argv);
-    scheme_define(sc, sc->global_env, mk_symbol(sc, "*args*"), args);
+    g_command_line = mk_string_list(argv);
     if (script) {
         scheme_load_file_or_die(script);
     } else {
