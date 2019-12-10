@@ -1,4 +1,8 @@
 /// = Desert Island Scheme
+/// :toc: macro
+/// :toc-title:
+///
+/// toc::[]
 ///
 /// == Introduction
 ///
@@ -18,7 +22,7 @@
 /// file for lines starting with `///` produces a user's manual in
 /// AsciiDoc format.
 ///
-/// == Lineage
+/// === Lineage
 ///
 /// - Mini-Scheme by Atsushi Moriwaki / kurims.kyoto-u.ac.jp (11/5/1989)
 /// - Mini-Scheme modified by R.C. Secrist
