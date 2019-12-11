@@ -305,8 +305,8 @@ struct scheme {
 };
 
 static scheme *sc;
-static const char *features_as_strings[] = { "desert", 0 };
 static const char *prompt = "discheme> ";
+static const char *features_as_strings[] = { "discheme", 0 };
 static pointer g_features;
 static pointer g_command_line;
 
