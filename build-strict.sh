@@ -5,4 +5,4 @@ echo "Entering directory '$PWD'"
 CC=${CC:-gcc}
 CFLAGS=${CFLAGS:--Wall -Wextra -pedantic -std=gnu99 -Og -g}
 set -x
-$CC $CFLAGS -o scheme scheme.c
+$CC $CFLAGS -o discheme discheme.c
