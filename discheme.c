@@ -306,6 +306,7 @@ struct scheme {
 
 static scheme *sc;
 static const char *features_as_strings[] = { "desert", 0 };
+static const char *prompt = "discheme> ";
 static pointer g_features;
 static pointer g_command_line;
 
@@ -401,10 +402,6 @@ static const char *our_strlwr(char *s)
     }
     return p;
 }
-
-#ifndef prompt
-#define prompt "ts> "
-#endif
 
 #ifndef FIRST_CELLSEGS
 #define FIRST_CELLSEGS 3
@@ -6999,6 +6996,11 @@ int main(int argc, char **argv)
     if (script) {
         scheme_load_file_or_die(script);
     } else {
+        if (!strcmp(progname, "vacation")) {
+            prompt = "\xf0\x9f\x8c\xb4  ";
+        } else if (!strcmp(progname, "easter")) {
+            prompt = "\xf0\x9f\x97\xbf  ";
+        }
         scheme_load_named_file(sc, stdin, 0);
     }
     retcode = sc->retcode;
