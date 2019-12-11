@@ -4,5 +4,6 @@ cd "$(dirname "$0")"
 echo "Entering directory '$PWD'"
 CC=${CC:-gcc}
 CFLAGS=${CFLAGS:--Wall -Wextra -pedantic -std=gnu99 -Og -g}
+version="$(git describe --always --tags --dirty 2>/dev/null || true)"
 set -x
-$CC $CFLAGS -o discheme discheme.c
+$CC $CFLAGS -D SCHEME_VERSION=\""$version"\" -o discheme discheme.c

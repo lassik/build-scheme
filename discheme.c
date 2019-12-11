@@ -31,6 +31,10 @@
 /// - Desert Island Scheme by Lassi Kortela
 ///
 
+#ifndef SCHEME_VERSION
+#define SCHEME_VERSION ""
+#endif
+
 #ifdef __unix__
 #define SCHEME_UNIX
 #endif
@@ -6937,11 +6941,22 @@ static void usage(void) { generic_usage(stderr, 2); }
 
 static void version(void)
 {
-    printf(
-        "This is Desert Island Scheme, a Scheme interpreter in one C file.\n"
-        "The language is a subset of R7RS with parts from many SRFIs.\n\n");
-    printf("(scheme-id desert)\n");
+    const char **sp;
+    const char *s;
+
+    printf("This is Desert Island Scheme, a Scheme interpreter in one C "
+           "file.\n\n");
+    printf("(command \"discheme\")\n");
+    printf("(scheme-id discheme)\n");
     printf("(languages scheme)\n");
+    printf("(features");
+    for (sp = features_as_strings; (s = *sp); sp++) {
+        printf(" %s", s);
+    }
+    printf(")\n");
+    printf("(discheme/specs)\n");
+    printf("(discheme/unstable-spec 2019)\n");
+    printf("(revision \"%s\")\n", SCHEME_VERSION);
     printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
         (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
         (int)(sizeof(void *) * CHAR_BIT));
@@ -7000,6 +7015,11 @@ int main(int argc, char **argv)
             prompt = "\xf0\x9f\x8c\xb4  ";
         } else if (!strcmp(progname, "easter")) {
             prompt = "\xf0\x9f\x97\xbf  ";
+        }
+        if (SCHEME_VERSION[0]) {
+            printf("Desert Island Scheme version %s\n", SCHEME_VERSION);
+        } else {
+            printf("Desert Island Scheme\n");
         }
         scheme_load_named_file(sc, stdin, 0);
     }
