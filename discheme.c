@@ -62,6 +62,7 @@
 #endif
 
 #ifdef SCHEME_UNIX
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -155,6 +156,7 @@ pointer mk_character(scheme *sc, int c);
 void putstr(scheme *sc, const char *s);
 int list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
+static void os_close_directory_list(pointer obj);
 
 enum scheme_port_kind {
     port_free = 0,
@@ -425,7 +427,8 @@ enum scheme_types {
     T_FILE_INFO = 14,
     T_USER_INFO = 15,
     T_TIMESPEC = 16,
-    T_LAST_SYSTEM_TYPE = 16
+    T_DIRECTORY_LIST = 17,
+    T_LAST_SYSTEM_TYPE = 17
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -528,6 +531,7 @@ int is_outport(pointer p)
 
 int is_file_info(pointer p) { return type(p) == T_FILE_INFO; }
 int is_user_info(pointer p) { return type(p) == T_USER_INFO; }
+int is_directory_list(pointer p) { return type(p) == T_DIRECTORY_LIST; }
 
 int is_timespec(pointer p) { return type(p) == T_TIMESPEC; }
 long timespec_sec(pointer p) { return p->_object._timespec.sec; }
@@ -1547,6 +1551,8 @@ static void finalize_cell(scheme *sc, pointer a)
         finalize_cell(
             sc, info->parsed_full_name); // TODO: this is wrong, it's a list
         sc->free(info);
+    } else if (is_directory_list(a)) {
+        os_close_directory_list(a);
     }
 }
 
@@ -2182,6 +2188,8 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
         p = "#<FILE-INFO>";
     } else if (is_user_info(l)) {
         p = "#<USER-INFO>";
+    } else if (is_directory_list(l)) {
+        p = "#<directory-list>";
     } else if (is_timespec(l)) {
         p = sc->strbuff;
         snprintf(p, STRBUFFSIZE, "#<timespec %ld>", timespec_sec(l));
@@ -3930,6 +3938,56 @@ static pointer os_set_environment_variable(
 #endif
 
 #ifdef SCHEME_UNIX
+static pointer os_open_directory_list(const char *path)
+{
+    void *p;
+
+    if (!(p = opendir(path))) {
+        return os_error("opendir");
+    }
+    return _s_return(sc, mk_opaque_type(T_DIRECTORY_LIST, p));
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static pointer os_read_directory(pointer obj)
+{
+    DIR *p;
+    struct dirent *d;
+    const char *name;
+
+    p = obj->_object._opaque._p;
+    if (p) {
+        for (;;) {
+            errno = 0;
+            d = readdir(p);
+            if (!d && errno) {
+                return os_error("readdir");
+            }
+            if (!d) {
+                return _s_return(sc, sc->EOF_OBJ);
+            }
+            name = d->d_name;
+            if (strcmp(name, ".") && strcmp(name, "..")) {
+                return _s_return(sc, mk_string(sc, name));
+            }
+        }
+    }
+    return _s_return(sc, sc->EOF_OBJ);
+}
+#endif
+
+#ifdef SCHEME_UNIX
+static void os_close_directory_list(pointer obj)
+{
+    if (obj->_object._opaque._p) {
+        closedir(obj->_object._opaque._p);
+        obj->_object._opaque._p = 0;
+    }
+}
+#endif
+
+#ifdef SCHEME_UNIX
 static pointer os_create_directory(const char *path, long mode)
 {
     if (mkdir(path, mode) == -1) {
@@ -5536,6 +5594,70 @@ static pointer prim_random_integer(void)
 /// === File system
 ///
 
+/// *Procedure* (*open-directory-list* _path_) => _directory-list_
+///
+/// From SRFI 170
+///
+/// Return an object for listing the directory entries in the
+/// directory _path_. Use *read-directory* to read them.
+///
+static pointer prim_open_directory_list(void)
+{
+    const char *path;
+
+    arg_string(&path);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_open_directory_list(path);
+}
+
+/// *Procedure* (*read-directory* _path_) => _directory-list_
+///
+/// From SRFI 170
+///
+/// Return an object for listing the directory entries in the
+/// directory _path_. Use *read-directory* to read them.
+///
+static pointer prim_read_directory(void)
+{
+    pointer obj;
+
+    if (!arg_obj(&obj)) {
+        return ARG_ERR;
+    }
+    if (!is_directory_list(obj)) {
+        arg_set_err("arg is not a directory-list object");
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_read_directory(obj);
+}
+
+/// *Procedure* (*close-directory-list* _directory-list_)
+///
+/// From SRFI 170
+///
+/// Close _directory-list_ when you are done reading it.
+///
+static pointer prim_close_directory_list(void)
+{
+    pointer obj;
+
+    if (!arg_obj(&obj)) {
+        return ARG_ERR;
+    }
+    if (!is_directory_list(obj)) {
+        arg_set_err("arg is not a directory-list object");
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    os_close_directory_list(obj);
+    return _s_return(sc, sc->F);
+}
+
 /// *Procedure* (*create-directory* _path_ [_mode_])
 ///
 /// From R7RS
@@ -6375,6 +6497,9 @@ static const struct primitive primitives[] = {
     { "user-uid", prim_user_uid },
     { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
+    { "open-directory-list", prim_open_directory_list },
+    { "read-directory", prim_read_directory },
+    { "close-directory-list", prim_close_directory_list },
 };
 
 static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
