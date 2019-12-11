@@ -6960,6 +6960,10 @@ static void version(void)
     printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
         (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
         (int)(sizeof(void *) * CHAR_BIT));
+    s = getenv("LANG");
+    printf("(env/LANG \"%s\")\n", s ? s : "");
+    s = getenv("TERM");
+    printf("(env/TERM \"%s\")\n", s ? s : "");
     exit(0);
 }
 
