@@ -5511,6 +5511,28 @@ static pointer prim_timespec_lt_p(void)
                                                                    : sc->F);
 }
 
+/// *Procedure* (*random-integer* _n_)
+///
+/// From SRFI 27
+///
+/// Return a random non-negative integer less than _n_. Expect the
+/// random number generator to be of poor quality.
+///
+static pointer prim_random_integer(void)
+{
+    long n, r;
+
+    arg_long(&n, 1, LONG_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    r = rand();
+    if (n < RAND_MAX) {
+        r %= n;
+    }
+    return _s_return(sc, mk_integer(sc, r));
+}
+
 /// === File system
 ///
 
@@ -6320,6 +6342,7 @@ static const struct primitive primitives[] = {
     { "port?", prim_port_p },
     { "posix-time", prim_posix_time },
     { "procedure?", prim_procedure_p },
+    { "random-integer", prim_random_integer },
     { "real-path", prim_real_path },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
