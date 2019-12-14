@@ -5332,7 +5332,7 @@ static pointer prim_list_p(void)
 /// From R7RS
 ///
 
-/// *Procedure* (*length* _list_...)
+/// *Procedure* (*length* _list_)
 ///
 /// From R7RS
 ///
