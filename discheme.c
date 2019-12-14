@@ -5332,6 +5332,35 @@ static pointer prim_list_p(void)
 /// From R7RS
 ///
 
+/// *Procedure* (*bounded-length* _max_ _list_)
+///
+/// Custom in Desert Island Scheme
+///
+/// Return the number of elements in _list_. But if _list_ is longer
+/// than _max_ elements, stop counting and just return _max_. If a
+/// dotted pair is encountered within the first _max_ pairs, `#f` is
+/// returned. The rest of the list is not checked for dotted pairs.
+/// Circular lists are not checked for.
+///
+static pointer prim_bounded_length(void)
+{
+    long max, len;
+    pointer list;
+
+    arg_long(&max, 0, LONG_MAX);
+    arg_obj(&list);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    for (len = 0; (len < max) && (list != sc->NIL); len++) {
+        if (!is_pair(list)) {
+            return _s_return(sc, sc->F);
+        }
+        list = cdr(list);
+    }
+    return _s_return(sc, mk_integer(sc, len));
+}
+
 /// *Procedure* (*length* _list_)
 ///
 /// From R7RS
@@ -6418,6 +6447,7 @@ static const struct primitive primitives[] = {
     { "append", prim_append },
     { "apropos", prim_apropos },
     { "boolean?", prim_boolean_p },
+    { "bounded-length", prim_bounded_length },
     { "car", prim_car },
     { "cdr", prim_cdr },
     { "char?", prim_char_p },
