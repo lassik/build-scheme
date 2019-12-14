@@ -5336,6 +5336,29 @@ static pointer prim_list_p(void)
 /// From R7RS
 ///
 
+/// *Procedure* (*length* _list_)
+///
+/// From R7RS
+///
+/// Return the number of elements in _list_, which must be a proper
+/// list. This procedure does not check against circular lists.
+///
+static pointer prim_length(void)
+{
+    pointer arg;
+    int n;
+
+    arg_obj(&arg);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    n = list_length(sc, arg);
+    if (n < 0) {
+        Error_1(sc, "length: not a list:", arg);
+    }
+    return _s_return(sc, mk_integer(sc, n));
+}
+
 /// *Procedure* (*bounded-length* _max_ _list_)
 ///
 /// Custom in Desert Island Scheme
@@ -5363,29 +5386,6 @@ static pointer prim_bounded_length(void)
         list = cdr(list);
     }
     return _s_return(sc, mk_integer(sc, len));
-}
-
-/// *Procedure* (*length* _list_)
-///
-/// From R7RS
-///
-/// Return the number of elements in _list_, which must be a proper
-/// list. This procedure does not check against circular lists.
-///
-static pointer prim_length(void)
-{
-    pointer arg;
-    int n;
-
-    arg_obj(&arg);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    n = list_length(sc, arg);
-    if (n < 0) {
-        Error_1(sc, "length: not a list:", arg);
-    }
-    return _s_return(sc, mk_integer(sc, n));
 }
 
 // (append 'a)           => a
