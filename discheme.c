@@ -6455,6 +6455,7 @@ static const struct primitive primitives[] = {
     { "car", prim_car },
     { "cdr", prim_cdr },
     { "char?", prim_char_p },
+    { "close-directory-list", prim_close_directory_list },
     { "closure?", prim_closure_p },
     { "command-line", prim_command_line },
     { "cons", prim_cons },
@@ -6493,6 +6494,7 @@ static const struct primitive primitives[] = {
     { "null?", prim_null_p },
     { "number?", prim_number_p },
     { "oblist", prim_oblist },
+    { "open-directory-list", prim_open_directory_list },
     { "output-port?", prim_output_port_p },
     { "pair?", prim_pair_p },
     { "pid", prim_pid },
@@ -6500,6 +6502,7 @@ static const struct primitive primitives[] = {
     { "posix-time", prim_posix_time },
     { "procedure?", prim_procedure_p },
     { "random-integer", prim_random_integer },
+    { "read-directory", prim_read_directory },
     { "real-path", prim_real_path },
     { "real?", prim_real_p },
     { "reverse", prim_reverse },
@@ -6532,9 +6535,6 @@ static const struct primitive primitives[] = {
     { "user-uid", prim_user_uid },
     { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
-    { "open-directory-list", prim_open_directory_list },
-    { "read-directory", prim_read_directory },
-    { "close-directory-list", prim_close_directory_list },
 };
 
 static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
