@@ -35,6 +35,10 @@
 #define SCHEME_VERSION ""
 #endif
 
+#ifndef SCHEME_BUILD_DATE
+#define SCHEME_BUILD_DATE ""
+#endif
+
 #ifdef __unix__
 #define SCHEME_UNIX
 #endif
@@ -6987,6 +6991,7 @@ static void version(void)
     printf("(discheme/specs)\n");
     printf("(discheme/unstable-spec 2019)\n");
     printf("(revision \"%s\")\n", SCHEME_VERSION);
+    printf("(build-date \"%s\")\n", SCHEME_BUILD_DATE);
     printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
         (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
         (int)(sizeof(void *) * CHAR_BIT));
