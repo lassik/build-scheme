@@ -7056,7 +7056,7 @@ int main(int argc, char **argv)
             prompt = "\xf0\x9f\x97\xbf  ";
         }
         if (SCHEME_VERSION[0]) {
-            printf("Desert Island Scheme version %s\n", SCHEME_VERSION);
+            printf("Desert Island Scheme (version %s)\n", SCHEME_VERSION);
         } else {
             printf("Desert Island Scheme\n");
         }
