@@ -151,6 +151,7 @@ void scheme_set_output_port_file(scheme *sc, FILE *fin);
 void scheme_set_output_port_string(
     scheme *sc, char *start, char *past_the_end);
 void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
+pointer scheme_call(scheme *sc, pointer func, pointer args);
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
 pointer mk_integer(scheme *sc, long num);
@@ -7291,6 +7292,42 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value)
     } else {
         new_slot_spec_in_env(sc, envir, symbol, value);
     }
+}
+
+void save_from_C_call(scheme *sc)
+{
+    pointer saved_data
+        = cons(sc, car(sc->sink), cons(sc, sc->envir, sc->dump));
+    /* Push */
+    sc->c_nest = cons(sc, saved_data, sc->c_nest);
+    /* Truncate the dump stack so TS will return here when done, not
+       directly resume pre-C-call operations. */
+    dump_stack_reset(sc);
+}
+
+void restore_from_C_call(scheme *sc)
+{
+    car(sc->sink) = caar(sc->c_nest);
+    sc->envir = cadar(sc->c_nest);
+    sc->dump = cdr(cdar(sc->c_nest));
+    /* Pop */
+    sc->c_nest = cdr(sc->c_nest);
+}
+
+/* "func" and "args" are assumed to be already eval'ed. */
+pointer scheme_call(scheme *sc, pointer func, pointer args)
+{
+    int old_repl = sc->interactive_repl;
+    sc->interactive_repl = 0;
+    save_from_C_call(sc);
+    sc->envir = sc->global_env;
+    sc->args = args;
+    sc->code = func;
+    sc->retcode = 0;
+    Eval_Cycle(sc, OP_APPLY);
+    sc->interactive_repl = old_repl;
+    restore_from_C_call(sc);
+    return sc->value;
 }
 
 static void generic_usage(FILE *out, int exitcode)
