@@ -484,7 +484,7 @@ int is_string(pointer p) { return (type(p) == T_STRING); }
 #define strvalue(p) ((p)->_object._string._svalue)
 #define strlength(p) ((p)->_object._string._length)
 
-static int is_list(scheme *sc, pointer p);
+static int is_list(pointer p);
 int is_vector(pointer p) { return (type(p) == T_VECTOR); }
 static void fill_vector(pointer vec, pointer obj);
 static pointer vector_elem(pointer vec, int ielem);
@@ -3077,7 +3077,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
                  x = cdr(x)) {
                 if (!is_pair(x))
                     Error_1(sc, "Bad syntax of binding in let :", x);
-                if (!is_list(sc, car(x)))
+                if (!is_list(car(x)))
                     Error_1(sc, "Bad syntax of binding in let :", car(x));
                 sc->args = cons(sc, caar(x), sc->args);
             }
@@ -3535,7 +3535,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
     return sc->T;
 }
 
-static int is_list(scheme *sc, pointer a) { return list_length(sc, a) >= 0; }
+static int is_list(pointer a) { return list_length(sc, a) >= 0; }
 
 /* Result is:
    proper list: length
