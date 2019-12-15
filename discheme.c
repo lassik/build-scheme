@@ -3459,37 +3459,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         s_return(sc, mk_character(sc, (char)c));
     }
 
-    case OP_SUBSTR: { /* substring */
-        char *str;
-        int index0;
-        int index1;
-        int len;
-
-        str = strvalue(car(sc->args));
-
-        index0 = ivalue(cadr(sc->args));
-
-        if (index0 > strlength(car(sc->args))) {
-            Error_1(sc, "substring: start out of bounds:", cadr(sc->args));
-        }
-
-        if (cddr(sc->args) != sc->NIL) {
-            index1 = ivalue(caddr(sc->args));
-            if (index1 > strlength(car(sc->args)) || index1 < index0) {
-                Error_1(sc, "substring: end out of bounds:", caddr(sc->args));
-            }
-        } else {
-            index1 = strlength(car(sc->args));
-        }
-
-        len = index1 - index0;
-        x = mk_empty_string(sc, len, ' ');
-        memcpy(strvalue(x), str + index0, len);
-        strvalue(x)[len] = 0;
-
-        s_return(sc, x);
-    }
-
     case OP_VECTOR: { /* vector */
         int i;
         pointer vec;
@@ -5493,6 +5462,44 @@ static pointer prim_gensym(void)
 
 /// === Strings
 
+/// *Procedure* (*substring* _string_ _start_ _end_)
+///
+/// From R7RS
+///
+/// Return a fresh string formed from the characters of _string_
+/// beginning with index _start_ and ending with index _end_. This is
+/// equivalent to calling *string-copy* with the same arguments.
+///
+static pointer prim_substring(void)
+{
+    pointer string, x;
+    char *str;
+    long index0, index1, len;
+
+    arg_obj_type(&string, is_string, "string");
+    arg_long(&index0, 0, LONG_MAX);
+    arg_long(&index1, 0, LONG_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    str = strvalue(string);
+    if (index0 > strlength(string)) {
+        return _Error_1(sc, "substring: start out of bounds", 0);
+    }
+    if (index1 > strlength(string)) {
+        return _Error_1(sc, "substring: end out of bounds", 0);
+    }
+    if (index1 < index0) {
+        return _Error_1(sc, "substring: end less than start", 0);
+    }
+    len = index1 - index0;
+    x = mk_empty_string(sc, len, ' ');
+    memcpy(strvalue(x), str + index0, len);
+    str = strvalue(x);
+    str[len] = 0;
+    return _s_return(sc, x);
+}
+
 /// *Procedure* (*string-append* _string_...)
 ///
 /// From R7RS
@@ -6802,6 +6809,7 @@ static const struct primitive primitives[] = {
     { "string-ref", prim_string_ref },
     { "string-set!", prim_string_set },
     { "string?", prim_string_p },
+    { "substring", prim_substring },
     { "symbol->string", prim_symbol_to_string },
     { "symbol?", prim_symbol_p },
     { "timespec", prim_timespec },

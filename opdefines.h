@@ -64,7 +64,6 @@
     _OP_DEF(opexe_2, "integer->char",                  1,  1,       TST_NATURAL,                     OP_INT2CHAR         )
     _OP_DEF(opexe_2, "char-upcase",                    1,  1,       TST_CHAR,                        OP_CHARUPCASE       )
     _OP_DEF(opexe_2, "char-downcase",                  1,  1,       TST_CHAR,                        OP_CHARDNCASE       )
-    _OP_DEF(opexe_2, "substring",                      2,  3,       TST_STRING TST_NATURAL,          OP_SUBSTR           )
     _OP_DEF(opexe_2, "vector",                         0,  INF_ARG, TST_NONE,                        OP_VECTOR           )
     _OP_DEF(opexe_2, "make-vector",                    1,  2,       TST_NATURAL TST_ANY,             OP_MKVECTOR         )
     _OP_DEF(opexe_2, "vector-length",                  1,  1,       TST_VECTOR,                      OP_VECLEN           )
