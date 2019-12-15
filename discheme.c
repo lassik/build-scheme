@@ -5227,8 +5227,8 @@ static pointer prim_iota(void)
         return ARG_ERR;
     }
     list = sc->NIL;
-    for (; n; n--) {
-        list = cons(sc, mk_integer(sc, n), list);
+    while (n) {
+        list = cons(sc, mk_integer(sc, --n), list);
     }
     return _s_return(sc, list);
 }
