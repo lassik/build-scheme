@@ -3459,43 +3459,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         s_return(sc, mk_character(sc, (char)c));
     }
 
-    case OP_STRREF: { /* string-ref */
-        char *str;
-        int index;
-
-        str = strvalue(car(sc->args));
-
-        index = ivalue(cadr(sc->args));
-
-        if (index >= strlength(car(sc->args))) {
-            Error_1(sc, "string-ref: out of bounds:", cadr(sc->args));
-        }
-
-        s_return(sc, mk_character(sc, ((unsigned char *)str)[index]));
-    }
-
-    case OP_STRSET: { /* string-set! */
-        char *str;
-        int index;
-        int c;
-
-        if (is_immutable(car(sc->args))) {
-            Error_1(sc, "string-set!: unable to alter immutable string:",
-                car(sc->args));
-        }
-        str = strvalue(car(sc->args));
-
-        index = ivalue(cadr(sc->args));
-        if (index >= strlength(car(sc->args))) {
-            Error_1(sc, "string-set!: out of bounds:", cadr(sc->args));
-        }
-
-        c = charvalue(caddr(sc->args));
-
-        str[index] = (char)c;
-        s_return(sc, car(sc->args));
-    }
-
     case OP_SUBSTR: { /* substring */
         char *str;
         int index0;
@@ -6426,6 +6389,62 @@ static pointer prim_string_length(void)
     return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, strlength(p)));
 }
 
+/// *Procedure* (*string-ref* _string_ _index_) => _char_
+///
+/// From R7RS
+///
+/// Return the character at index _index_ in _string_. The _index_ of
+/// the first character is zero.
+///
+static pointer prim_string_ref(void)
+{
+    pointer string;
+    char *str;
+    long index;
+
+    arg_obj_type(&string, is_string, "string");
+    arg_long(&index, 0, LONG_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (index >= strlength(string)) {
+        return _Error_1(sc, "string-ref: index out of bounds", 0);
+    }
+    str = strvalue(string);
+    return _s_return(sc, mk_character(sc, ((unsigned char *)str)[index]));
+}
+
+/// *Procedure* (*string-set!* _string_ _index_ _char_)
+///
+/// From R7RS
+///
+/// Store _char_ as the character at index _index_ in _string_. The
+/// _index_ of the first character in the string is zero.
+///
+static pointer prim_string_set(void)
+{
+    pointer string;
+    char *str;
+    long index, c;
+
+    arg_obj_type(&string, is_string, "string");
+    arg_long(&index, 0, LONG_MAX);
+    arg_char(&c);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (is_immutable(string)) {
+        return _Error_1(
+            sc, "string-set!: unable to alter immutable string:", string);
+    }
+    str = strvalue(string);
+    if (index >= strlength(string)) {
+        return _Error_1(sc, "string-set!: index out of bounds", 0);
+    }
+    str[index] = c;
+    return _s_return(sc, string);
+}
+
 /// *Procedure* (*new-segment* _n_)
 ///
 /// From TinyScheme
@@ -6780,6 +6799,8 @@ static const struct primitive primitives[] = {
     { "string->symbol", prim_string_to_symbol },
     { "string-append", prim_string_append },
     { "string-length", prim_string_length },
+    { "string-ref", prim_string_ref },
+    { "string-set!", prim_string_set },
     { "string?", prim_string_p },
     { "symbol->string", prim_symbol_to_string },
     { "symbol?", prim_symbol_p },
