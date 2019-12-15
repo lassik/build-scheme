@@ -3943,6 +3943,47 @@ static pointer os_set_environment_variable(
 #endif
 
 #ifdef SCHEME_UNIX
+static pointer os_user_supplementary_gids(void)
+{
+    pointer list;
+    gid_t effective, gid;
+    gid_t *buf;
+    gid_t *newbuf;
+    size_t cap;
+    int n;
+
+    buf = 0;
+    cap = 16 * sizeof(*buf);
+    for (;;) {
+        newbuf = realloc(buf, cap);
+        if (!newbuf) {
+            free(buf);
+            return sc->NIL;
+        }
+        buf = newbuf;
+        n = getgroups(cap / sizeof(*buf), buf);
+        if (n != -1) {
+            break;
+        }
+        if (errno != EINVAL) {
+            return os_error("getgroups");
+        }
+        cap *= 2;
+    }
+    effective = getegid();
+    list = sc->NIL;
+    while (n > 0) {
+        gid = buf[--n];
+        if (gid != effective) {
+            list = cons(sc, mk_integer(sc, gid), list);
+        }
+    }
+    free(buf);
+    return _s_return(sc, list);
+}
+#endif
+
+#ifdef SCHEME_UNIX
 static pointer os_open_directory_list(const char *path)
 {
     void *p;
@@ -6071,8 +6112,10 @@ static pointer prim_user_effective_gid(void)
 ///
 static pointer prim_user_supplementary_gids(void)
 {
-    // getgroups()
-    return _s_return(sc, sc->F);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return os_user_supplementary_gids();
 }
 
 #define arg_string_or_port arg_string
