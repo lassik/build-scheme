@@ -6731,12 +6731,16 @@ static pointer call_primitive(size_t i)
 
 static const char *procname(pointer x)
 {
-    int n = procnum(x);
-    const char *name = dispatch_table[n].name;
-    if (name == 0) {
-        name = "ILLEGAL!";
+    const char *name = 0;
+    int n;
+
+    n = procnum(x);
+    if (n < (int)ndispatch) {
+        name = dispatch_table[n].name;
+    } else if (n < (int)(ndispatch + nprimitive)) {
+        name = primitives[n - ndispatch].name;
     }
-    return name;
+    return name ? name : "illegal";
 }
 
 /* kernel of this interpreter */
