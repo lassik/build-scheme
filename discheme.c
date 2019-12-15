@@ -5966,7 +5966,6 @@ static const char help_message[]
 ///
 static pointer prim_help(void)
 {
-
     if (arg_err()) {
         return ARG_ERR;
     }
