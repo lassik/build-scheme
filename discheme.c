@@ -5326,10 +5326,33 @@ static pointer prim_list_p(void)
     s_retbool(list_length(sc, arg) >= 0);
 }
 
-/// *Procedure* (*make-list* _k_ _fill_)
+/// *Procedure* (*make-list* _n_ [_fill_])
 ///
 /// From R7RS
 ///
+/// Return a fresh _n_-element list containing the value _fill_
+/// repeated _n_ times. The default _fill_ value is undefined in R7RS;
+/// in Desert Island Scheme it is `#f`.
+///
+static pointer prim_make_list(void)
+{
+    long n;
+    pointer fill, list;
+
+    arg_long(&n, 0, INT_MAX);
+    fill = sc->F;
+    if (arg_left()) {
+        arg_obj(&fill);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    list = sc->NIL;
+    for (; n; n--) {
+        list = cons(sc, fill, list);
+    }
+    return _s_return(sc, list);
+}
 
 /// *Procedure* (*list* _obj_...)
 ///
@@ -6511,6 +6534,7 @@ static const struct primitive primitives[] = {
     { "length", prim_length },
     { "list?", prim_list_p },
     { "macro?", prim_macro_p },
+    { "make-list", prim_make_list },
     { "make-string", prim_make_string },
     { "new-segment", prim_new_segment },
     { "not", prim_not },
