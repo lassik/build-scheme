@@ -88,7 +88,6 @@
     _OP_DEF(opexe_4, "newline",                        0,  1,       TST_OUTPORT,                     OP_NEWLINE          )
     _OP_DEF(opexe_4, "error",                          1,  INF_ARG, TST_NONE,                        OP_ERR0             )
     _OP_DEF(opexe_4, 0,                                0,  0,       0,                               OP_ERR1             )
-    _OP_DEF(opexe_4, "cons*",                          1,  INF_ARG, TST_NONE,                        OP_CONS_STAR        )
     _OP_DEF(opexe_4, "open-input-file",                1,  1,       TST_STRING,                      OP_OPEN_INFILE      )
     _OP_DEF(opexe_4, "open-output-file",               1,  1,       TST_STRING,                      OP_OPEN_OUTFILE     )
     _OP_DEF(opexe_4, "open-input-output-file",         1,  1,       TST_STRING,                      OP_OPEN_INOUTFILE   )

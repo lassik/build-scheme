@@ -4460,9 +4460,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
             }
         }
 
-    case OP_CONS_STAR: /* cons* */
-        s_return(sc, cons_star(sc, sc->args));
-
     case OP_OPEN_INFILE: /* open-input-file */
     case OP_OPEN_OUTFILE: /* open-output-file */
     case OP_OPEN_INOUTFILE: /* open-input-output-file */ {
@@ -5395,10 +5392,49 @@ static pointer prim_make_list(void)
     return _s_return(sc, list);
 }
 
-/// *Procedure* (*list* _obj_...)
+/// *Procedure* (*list* _elem_...)
 ///
 /// From R7RS
 ///
+/// Return a fresh list with the given elements. Note that though the
+/// list itself is fresh, the elements are simply references to the
+/// existing objects, not copies of them.
+///
+
+/// *Procedure* (*cons** [_elem_...] _tail_)
+///
+/// From SRFI 1
+///
+/// Like *list*, but with an extra _tail_ argument that becomes the
+/// cdr of the last pair in the list. This lets you make a dotted list
+/// or append a previously-made list to the end of the new one. When
+/// only _tail_ is given, just returns it. The returned list is fresh,
+/// but neither the _elem_... nor _tail_ are ever copied. If _tail_ is
+/// a list, the resulting list is part new, part old. Compare with
+/// *append*.
+///
+/// This procedure has the more obvious name `list*` in Common Lisp,
+/// but the name *cons** is compatible with SRFI 1.
+///
+static pointer prim_cons_star(void)
+{
+    pointer list, last;
+
+    list = sc->NIL;
+    if (!arg_obj(&last)) {
+        return sc->NIL;
+    }
+    while (arg_left()) {
+        list = cons(sc, last, list);
+        if (!arg_obj(&last)) {
+            return sc->NIL;
+        }
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, reverse_in_place(sc, last, list));
+}
 
 /// *Procedure* (*iota* _n_)
 ///
@@ -6589,6 +6625,7 @@ static const struct primitive primitives[] = {
     { "closure?", prim_closure_p },
     { "command-line", prim_command_line },
     { "cons", prim_cons },
+    { "cons*", prim_cons_star },
     { "create-directory", prim_create_directory },
     { "current-input-port", prim_current_input_port },
     { "current-output-port", prim_current_output_port },
