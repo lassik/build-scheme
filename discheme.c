@@ -5386,7 +5386,7 @@ static pointer prim_iota(void)
 /// From R7RS
 ///
 /// Return the number of elements in _list_, which must be a proper
-/// list. This procedure does not check against circular lists.
+/// list. An error is signaled on a circular or improper list.
 ///
 static pointer prim_length(void)
 {
