@@ -2279,18 +2279,17 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
         p = symname(l);
     } else if (is_proc(l)) {
         p = sc->strbuff;
-        snprintf(
-            p, STRBUFFSIZE, "#<%s PROCEDURE %ld>", procname(l), procnum(l));
+        snprintf(p, STRBUFFSIZE, "#<built-in procedure %s>", procname(l));
     } else if (is_macro(l)) {
-        p = "#<MACRO>";
+        p = "#<macro>";
     } else if (is_closure(l)) {
-        p = "#<CLOSURE>";
+        p = "#<procedure>";
     } else if (is_promise(l)) {
-        p = "#<PROMISE>";
+        p = "#<promise>";
     } else if (is_continuation(l)) {
-        p = "#<CONTINUATION>";
+        p = "#<continuation>";
     } else {
-        p = "#<ERROR>";
+        p = "#<error>";
     }
     *pp = p;
     *plen = strlen(p);
