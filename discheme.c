@@ -5336,6 +5336,28 @@ static pointer prim_list_p(void)
 /// From R7RS
 ///
 
+/// *Procedure* (*iota* _n_)
+///
+/// From SRFI 1
+///
+/// Return a list of integers from 0 (inclusive) to _n_ (exclusive).
+///
+static pointer prim_iota(void)
+{
+    pointer list;
+    long n;
+
+    arg_long(&n, 0, INT_MAX);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    list = sc->NIL;
+    for (; n; n--) {
+        list = cons(sc, mk_integer(sc, n), list);
+    }
+    return _s_return(sc, list);
+}
+
 /// *Procedure* (*length* _list_)
 ///
 /// From R7RS
@@ -6485,6 +6507,7 @@ static const struct primitive primitives[] = {
     { "get-environment-variables", prim_get_environment_variables },
     { "input-port?", prim_input_port_p },
     { "integer?", prim_integer_p },
+    { "iota", prim_iota },
     { "length", prim_length },
     { "list?", prim_list_p },
     { "macro?", prim_macro_p },
