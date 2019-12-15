@@ -4921,6 +4921,23 @@ static int arg_obj(pointer *out)
     return 1;
 }
 
+static int arg_obj_type(
+    pointer *out, int predicate(pointer), const char *typename)
+{
+    pointer arg;
+
+    (void)typename; // TODO: use this in error message
+    *out = 0;
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!predicate(arg)) {
+        return arg_set_err("arg is not of the desired type");
+    }
+    *out = arg;
+    return 1;
+}
+
 static int arg_err(void)
 {
     int ok;
