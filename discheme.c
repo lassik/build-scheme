@@ -5716,7 +5716,7 @@ static pointer write_primitive(pointer obj, int write_flags)
     s_goto(sc, OP_WRITE_BEGIN);
 }
 
-/// *Procedure* (*write* _obj_ _port_)
+/// *Procedure* (*write* _obj_ [_port_])
 ///
 /// From R7RS
 ///
@@ -5734,7 +5734,7 @@ static pointer prim_write(void)
     return write_primitive(obj, 0);
 }
 
-/// *Procedure* (*writeln* _obj_ _port_)
+/// *Procedure* (*writeln* _obj_ [_port_])
 ///
 /// From Racket
 ///
@@ -5748,7 +5748,7 @@ static pointer prim_writeln(void)
     return write_primitive(obj, WRITE_NEWLINE);
 }
 
-/// *Procedure* (*display* _obj_ _port_)
+/// *Procedure* (*display* _obj_ [_port_])
 ///
 /// From R7RS
 ///
@@ -5771,7 +5771,7 @@ static pointer prim_display(void)
     return write_primitive(obj, WRITE_DISPLAY);
 }
 
-/// *Procedure* (*displayln* _obj_ _port_)
+/// *Procedure* (*displayln* _obj_ [_port_])
 ///
 /// From Racket
 ///
@@ -5800,7 +5800,7 @@ static pointer prim_newline(void)
     return write_primitive(nothing, WRITE_DISPLAY | WRITE_NEWLINE);
 }
 
-/// *Procedure* (*write-char* _char_ _port_)
+/// *Procedure* (*write-char* _char_ [_port_])
 ///
 /// From R7RS
 ///
