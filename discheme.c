@@ -5591,6 +5591,37 @@ static pointer prim_num_ge(void) { return cmp_primitive(num_ge); }
 
 static pointer prim_char_p(void) { return obj_predicate(is_character); }
 
+static pointer long_primitive(long operator(long, long), long identity)
+{
+    long a, b;
+
+    a = identity;
+    while (arg_left()) {
+        if (!arg_long(&b, LONG_MIN, LONG_MAX)) {
+            break;
+        }
+        a = operator(a, b);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    return _s_return(sc, mk_integer(sc, a));
+}
+
+static long long_and(long a, long b) { return a & b; }
+static long long_ior(long a, long b) { return a | b; }
+static long long_xor(long a, long b) { return a ^ b; }
+
+/// *Procedure* (*bitwise-and* _i_ ...) +
+/// *Procedure* (*bitwise-ior* _i_ ...) +
+/// *Procedure* (*bitwise-xor* _i_ ...)
+///
+/// From SRFI 151
+///
+static pointer bitwise_and(void) { return long_primitive(long_and, -1L); }
+static pointer bitwise_ior(void) { return long_primitive(long_ior, 0); }
+static pointer bitwise_xor(void) { return long_primitive(long_xor, 0); }
+
 /// === Control features
 ///
 
@@ -6919,6 +6950,9 @@ static const struct primitive primitives[] = {
     { "append", prim_append },
     { "apropos", prim_apropos },
     { "atom->string", prim_atom_to_string },
+    { "bitwise-and", bitwise_and },
+    { "bitwise-ior", bitwise_ior },
+    { "bitwise-xor", bitwise_xor },
     { "boolean?", prim_boolean_p },
     { "bounded-length", prim_bounded_length },
     { "car", prim_car },
