@@ -5364,13 +5364,13 @@ static pointer prim_list_p(void)
     s_retbool(list_length(sc, arg) >= 0);
 }
 
-/// *Procedure* (*make-list* _n_ [_fill_])
+/// *Procedure* (*make-list* _n_ [_elem_])
 ///
 /// From R7RS
 ///
-/// Return a fresh _n_-element list containing the value _fill_
-/// repeated _n_ times. The default _fill_ value is undefined in R7RS;
-/// in Desert Island Scheme it is `#f`.
+/// Return a fresh _n_-element list containing _elem_ repeated _n_
+/// times. The default _elem_ is undefined in R7RS; in Desert Island
+/// Scheme it is `#f`.
 ///
 static pointer prim_make_list(void)
 {
