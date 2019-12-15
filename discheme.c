@@ -2318,7 +2318,7 @@ static pointer mk_continuation(scheme *sc, pointer d)
     return (x);
 }
 
-static pointer list_star(scheme *sc, pointer d)
+static pointer cons_star(scheme *sc, pointer d)
 {
     pointer p, q;
     if (cdr(d) == sc->NIL) {
@@ -3353,7 +3353,7 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op)
 
     case OP_PAPPLY: /* apply */
         sc->code = car(sc->args);
-        sc->args = list_star(sc, cdr(sc->args));
+        sc->args = cons_star(sc, cdr(sc->args));
         /*sc->args = cadr(sc->args);*/
         s_goto(sc, OP_APPLY);
 
@@ -4460,8 +4460,8 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
             }
         }
 
-    case OP_LIST_STAR: /* list* */
-        s_return(sc, list_star(sc, sc->args));
+    case OP_CONS_STAR: /* cons* */
+        s_return(sc, cons_star(sc, sc->args));
 
     case OP_OPEN_INFILE: /* open-input-file */
     case OP_OPEN_OUTFILE: /* open-output-file */
