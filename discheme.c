@@ -4984,6 +4984,20 @@ static int arg_pair(pointer *out)
     return 1;
 }
 
+static int arg_symbol(const char **out)
+{
+    pointer arg;
+
+    if (!arg_obj(&arg)) {
+        return 0;
+    }
+    if (!is_symbol(arg)) {
+        return arg_set_err("arg is not a symbol");
+    }
+    *out = symname(arg);
+    return 1;
+}
+
 static int arg_string(const char **out)
 {
     pointer arg;
