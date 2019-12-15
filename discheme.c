@@ -569,6 +569,11 @@ int is_continuation(pointer p) { return (type(p) == T_CONTINUATION); }
 /* To do: promise should be forced ONCE only */
 int is_promise(pointer p) { return (type(p) == T_PROMISE); }
 
+static int is_callable(pointer p)
+{
+    return is_proc(p) || is_closure(p) || is_continuation(p);
+}
+
 int is_environment(pointer p) { return (type(p) == T_ENVIRONMENT); }
 #define setenvironment(p) typeflag(p) = T_ENVIRONMENT
 
