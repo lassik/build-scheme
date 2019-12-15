@@ -6382,12 +6382,12 @@ static pointer prim_macro_p(void) { return obj_predicate(is_macro); }
 ///
 /// Return a fresh _n_-character string containing _char_ repeated _n_
 /// times. The default _char_ is undefined in R7RS; in Desert Island
-/// Scheme it is an ASCII space.
+/// Scheme it is a null character.
 ///
 static pointer prim_make_string(void)
 {
     long len;
-    long fill = ' ';
+    long fill = 0;
 
     arg_long(&len, 0, LONG_MAX);
     if (arg_left()) {
