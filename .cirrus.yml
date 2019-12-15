@@ -4,43 +4,43 @@ alpine_task:
   setup_script:
     - apk update
     - apk add build-base
-  compile_script: ./build-strict.sh
+  compile_script: ./build-strict-noasan.sh
 archlinux_task:
   container:
     image: archlinux/base
   setup_script:
     - pacman --noconfirm -Sy
     - pacman --noconfirm -S gcc
-  compile_script: ./build-strict-asan.sh
+  compile_script: ./build-strict.sh
 centos_task:
   container:
     image: centos
   setup_script:
     - yum update -y
     - yum install -y gcc glibc-devel libasan
-  compile_script: ./build-strict-asan.sh
+  compile_script: ./build-strict.sh
 debian_task:
   container:
     image: debian
   setup_script:
     - apt update -y
     - apt install -y gcc libc-dev
-  compile_script: ./build-strict-asan.sh
+  compile_script: ./build-strict.sh
 ubuntu_task:
   container:
     image: ubuntu
   setup_script:
     - apt update -y
     - apt install -y gcc libc-dev
-  compile_script: ./build-strict-asan.sh
+  compile_script: ./build-strict.sh
 freebsd_task:
   freebsd_instance:
     image: freebsd-12-0-release-amd64
-  compile_script: CC=clang ./build-strict-asan.sh
+  compile_script: CC=clang ./build-strict.sh
 macos_task:
   osx_instance:
     image: mojave-base
-  compile_script: ./build-strict-asan.sh
+  compile_script: ./build-strict.sh
 cygwin_task:
   windows_container:
     image: cirrusci/windowsservercore:2019
@@ -49,7 +49,7 @@ cygwin_task:
     - choco install -y --no-progress cygwin
     - c:\tools\cygwin\cygwinsetup -q -P binutils,gcc-core
   compile_script:
-    - c:\tools\cygwin\bin\bash --login "%CD%\build-strict.sh"
+    - c:\tools\cygwin\bin\bash --login "%CD%\build-strict-noasan.sh"
 msys_task:
   windows_container:
     image: cirrusci/windowsservercore:cmake
@@ -58,4 +58,4 @@ msys_task:
     - set PATH=c:\tools\msys64\bin;c:\tools\msys64\usr\bin;%PATH%
     - pacman --noconfirm -S gcc
   compile_script:
-    - c:\tools\msys64\usr\bin\bash --login "%CD%\build-strict.sh"
+    - c:\tools\msys64\usr\bin\bash --login "%CD%\build-strict-noasan.sh"
