@@ -156,7 +156,6 @@ pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
 pointer mk_integer(scheme *sc, long num);
 pointer mk_real(scheme *sc, double num);
 pointer mk_symbol(scheme *sc, const char *name);
-pointer gensym(scheme *sc);
 pointer mk_string(scheme *sc, const char *str);
 pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_empty_string(scheme *sc, int len, char fill);
@@ -1274,28 +1273,6 @@ pointer mk_timespec(scheme *sc, long sec, long nsec)
     x->_object._timespec.sec = sec;
     x->_object._timespec.nsec = nsec;
     return x;
-}
-
-pointer gensym(scheme *sc)
-{
-    pointer x;
-    char name[40];
-
-    for (; sc->gensym_cnt < LONG_MAX; sc->gensym_cnt++) {
-        snprintf(name, 40, "gensym-%ld", sc->gensym_cnt);
-
-        /* first check oblist */
-        x = oblist_find_by_name(sc, name);
-
-        if (x != sc->NIL) {
-            continue;
-        } else {
-            x = oblist_add_by_name(sc, name);
-            return (x);
-        }
-    }
-
-    return sc->NIL;
 }
 
 /* make symbol or number atom from string */
@@ -2813,9 +2790,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
             s_return(sc, sc->EOF_OBJ);
         }
         s_goto(sc, OP_RDSEXPR);
-
-    case OP_GENSYM:
-        s_return(sc, gensym(sc));
 
     case OP_VALUEPRINT: /* print evaluation result */
         /* OP_VALUEPRINT is always pushed, because when changing from
@@ -5571,6 +5545,36 @@ static pointer prim_string_to_symbol(void)
     return arg_err() ? ARG_ERR : _s_return(sc, mk_symbol(sc, s));
 }
 
+/// *Procedure* (*gensym*)
+///
+/// From Common Lisp
+///
+/// Return a unique symbol that is unequal to any existing symbol.
+///
+static pointer prim_gensym(void)
+{
+    pointer x;
+    char name[40];
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    for (; sc->gensym_cnt < LONG_MAX; sc->gensym_cnt++) {
+        snprintf(name, 40, "gensym-%ld", sc->gensym_cnt);
+
+        /* first check oblist */
+        x = oblist_find_by_name(sc, name);
+
+        if (x != sc->NIL) {
+            continue;
+        } else {
+            x = oblist_add_by_name(sc, name);
+            return (x);
+        }
+    }
+    return sc->NIL;
+}
+
 /// === Characters
 
 /// === Strings
@@ -6659,6 +6663,7 @@ static const struct primitive primitives[] = {
     { "file-info?", prim_file_info_p },
     { "gc", prim_gc },
     { "gc-verbose", prim_gc_verbose },
+    { "gensym", prim_gensym },
     { "get-environment-variable", prim_get_environment_variable },
     { "get-environment-variables", prim_get_environment_variables },
     { "help", prim_help },
