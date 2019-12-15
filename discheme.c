@@ -5931,6 +5931,49 @@ static pointer prim_exit(void)
     return sc->NIL;
 }
 
+static const char help_message[]
+    = "------------------------------------------------------------------"
+      "----\n"
+      "This is Desert Island Scheme, a bare-bones scripting environment for\n"
+      "the Scheme programming language.\n"
+      "\n"
+      "You are in the REPL (\"read-eval-print loop\"). Here you can "
+      "experiment\n"
+      "with code before saving it into a script file. Try (+ 1 2 (* 3 4 5))\n"
+      "or (displayln \"Hello world\")\n"
+      "\n"
+      "Type (exit) including the parentheses to leave Scheme.\n"
+      "Type (apropos \"file\") to find every procedure with \"file\" in its "
+      "name.\n"
+      "Type (load \"file.scm\") to run all the code in a Scheme source "
+      "file.\n"
+      "If the file defines things, you can keep using them in the REPL.\n"
+      "\n"
+      "DIScheme can run Unix scripts: #! /usr/bin/env discheme\n"
+      "DIScheme does not have a compiler, debugger or profiler.\n"
+      "DIScheme covers most of the R7RS-small language standard plus parts\n"
+      "of many SRFI extensions. It has almost no non-standard features.\n"
+      "\n"
+      "When all else fails, read the manual. Happy hacking!\n"
+      "------------------------------------------------------------------"
+      "----\n";
+
+/// *Procedure* (*help*)
+///
+/// From SRFI nnn
+///
+/// Display online help.
+///
+static pointer prim_help(void)
+{
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    putstr(sc, help_message);
+    return _s_return(sc, sc->T);
+}
+
 /// *Procedure* (*features*)
 ///
 /// From R7RS
@@ -6528,6 +6571,7 @@ static const struct primitive primitives[] = {
     { "gc-verbose", prim_gc_verbose },
     { "get-environment-variable", prim_get_environment_variable },
     { "get-environment-variables", prim_get_environment_variables },
+    { "help", prim_help },
     { "input-port?", prim_input_port_p },
     { "integer?", prim_integer_p },
     { "iota", prim_iota },
