@@ -5594,6 +5594,31 @@ static pointer prim_char_p(void) { return obj_predicate(is_character); }
 /// === Control features
 ///
 
+/// *Procedure* (*map* _proc_ _list_)
+///
+/// From R7RS
+///
+/// Call _proc_ once for each element in _list_ in the order they
+/// appear. Collect the return values in a list and return it.
+///
+static pointer prim_map(void)
+{
+    pointer proc, list, result, results;
+
+    arg_obj_type(&proc, is_callable, "procedure");
+    arg_obj_type(&list, is_list, "list");
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    results = sc->NIL;
+    for (; is_pair(list); list = cdr(list)) {
+        result = scheme_call(sc, proc, cons(sc, car(list), sc->NIL));
+        // TODO: check for error
+        results = cons(sc, result, results);
+    }
+    return _s_return(sc, reverse_in_place(sc, sc->NIL, results));
+}
+
 /// *Procedure* (*for-each* _proc_ _list_)
 ///
 /// From R7RS
@@ -6942,6 +6967,7 @@ static const struct primitive primitives[] = {
     { "macro?", prim_macro_p },
     { "make-list", prim_make_list },
     { "make-string", prim_make_string },
+    { "map", prim_map },
     { "new-segment", prim_new_segment },
     { "newline", prim_newline },
     { "not", prim_not },
