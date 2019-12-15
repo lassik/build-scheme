@@ -4207,8 +4207,6 @@ static pointer os_user_info(const char *name, long uid) {}
 
 static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
 {
-    pointer x;
-
     switch (op) {
     case OP_FORCE: /* force */
         sc->code = car(sc->args);
@@ -4224,17 +4222,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
     case OP_SAVE_FORCED: /* Save forced value replacing promise */
         memcpy(sc->code, sc->value, sizeof(struct cell));
         s_return(sc, sc->value);
-
-    case OP_NEWLINE: /* newline */
-        if (is_pair(sc->args)) {
-            if (car(sc->args) != sc->outport) {
-                x = cons(sc, sc->outport, sc->NIL);
-                s_save(sc, OP_SET_OUTPORT, x, sc->NIL);
-                sc->outport = car(sc->args);
-            }
-        }
-        putstr(sc, "\n");
-        s_return(sc, sc->T);
 
     case OP_ERR0: /* error */
         sc->retcode = -1;
@@ -5798,6 +5785,21 @@ static pointer prim_displayln(void)
     return write_primitive(obj, WRITE_DISPLAY | WRITE_NEWLINE);
 }
 
+/// *Procedure* (*newline* [_port_])
+///
+/// From R7RS
+///
+/// Write an end of line to the textual output port. The default
+/// _port_ is the current output port.
+///
+static pointer prim_newline(void)
+{
+    pointer nothing;
+
+    nothing = mk_string(sc, "");
+    return write_primitive(nothing, WRITE_DISPLAY | WRITE_NEWLINE);
+}
+
 /// *Procedure* (*write-char* _char_ _port_)
 ///
 /// From R7RS
@@ -6941,6 +6943,7 @@ static const struct primitive primitives[] = {
     { "make-list", prim_make_list },
     { "make-string", prim_make_string },
     { "new-segment", prim_new_segment },
+    { "newline", prim_newline },
     { "not", prim_not },
     { "null?", prim_null_p },
     { "number?", prim_number_p },

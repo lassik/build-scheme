@@ -76,7 +76,6 @@
     _OP_DEF(opexe_4, "write",                          1,  2,       TST_ANY TST_OUTPORT,             OP_WRITE            )
     _OP_DEF(opexe_4, "write-char",                     1,  2,       TST_CHAR TST_OUTPORT,            OP_WRITE_CHAR       )
     _OP_DEF(opexe_4, "display",                        1,  2,       TST_ANY TST_OUTPORT,             OP_DISPLAY          )
-    _OP_DEF(opexe_4, "newline",                        0,  1,       TST_OUTPORT,                     OP_NEWLINE          )
     _OP_DEF(opexe_4, "error",                          1,  INF_ARG, TST_NONE,                        OP_ERR0             )
     _OP_DEF(opexe_4, 0,                                0,  0,       0,                               OP_ERR1             )
     _OP_DEF(opexe_4, "open-input-file",                1,  1,       TST_STRING,                      OP_OPEN_INFILE      )
