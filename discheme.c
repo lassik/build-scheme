@@ -126,6 +126,9 @@ extern char **environ;
 #define SHOW_ERROR_LINE 1
 #endif
 
+#define WRITE_NEWLINE (1 << 0)
+#define WRITE_DISPLAY (1 << 1)
+
 typedef struct scheme scheme;
 typedef struct cell *pointer;
 
@@ -165,6 +168,7 @@ void putstr(scheme *sc, const char *s);
 int list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
 static void os_close_directory_list(pointer obj);
+static pointer write_primitive(pointer obj, int write_flags);
 
 enum scheme_port_kind {
     port_free = 0,
@@ -301,7 +305,7 @@ struct scheme {
 
     FILE *tmpfp;
     int tok;
-    int print_flag;
+    int write_flags;
     pointer value;
     int op;
 
@@ -2770,7 +2774,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
         if (file_interactive(sc)) {
             sc->envir = sc->global_env;
             dump_stack_reset(sc);
-            putstr(sc, "\n");
             putstr(sc, prompt);
         }
 
@@ -2808,10 +2811,20 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
             putstr(sc, "\n");
             s_return(sc, sc->value);
         } else {
-            sc->print_flag = 1;
-            sc->args = sc->value;
-            s_goto(sc, OP_P0LIST);
+            sc->write_flags = WRITE_NEWLINE;
+            s_goto(sc, OP_WRITE_BEGIN);
         }
+
+    case OP_WRITE_BEGIN:
+        s_save(sc, OP_WRITE_END, sc->NIL, sc->NIL);
+        sc->args = sc->value;
+        s_goto(sc, OP_P0LIST);
+
+    case OP_WRITE_END:
+        if (sc->write_flags & WRITE_NEWLINE) {
+            putcharacter(sc, '\n');
+        }
+        s_return(sc, sc->T);
 
     case OP_EVAL: /* main part of evaluation */
 #if USE_TRACING
@@ -2884,7 +2897,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
 #if USE_TRACING
         if (sc->tracing) {
             s_save(sc, OP_REAL_APPLY, sc->args, sc->code);
-            sc->print_flag = 1;
+            sc->write_flags = 0;
             /*  sc->args=cons(sc,sc->code,sc->args);*/
             putstr(sc, "\nApply to: ");
             s_goto(sc, OP_P0LIST);
@@ -4212,24 +4225,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         memcpy(sc->code, sc->value, sizeof(struct cell));
         s_return(sc, sc->value);
 
-    case OP_WRITE: /* write */
-    case OP_DISPLAY: /* display */
-    case OP_WRITE_CHAR: /* write-char */
-        if (is_pair(cdr(sc->args))) {
-            if (cadr(sc->args) != sc->outport) {
-                x = cons(sc, sc->outport, sc->NIL);
-                s_save(sc, OP_SET_OUTPORT, x, sc->NIL);
-                sc->outport = cadr(sc->args);
-            }
-        }
-        sc->args = car(sc->args);
-        if (op == OP_WRITE) {
-            sc->print_flag = 1;
-        } else {
-            sc->print_flag = 0;
-        }
-        s_goto(sc, OP_P0LIST);
-
     case OP_NEWLINE: /* newline */
         if (is_pair(sc->args)) {
             if (car(sc->args) != sc->outport) {
@@ -4257,7 +4252,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         if (sc->args != sc->NIL) {
             s_save(sc, OP_ERR1, cdr(sc->args), sc->NIL);
             sc->args = car(sc->args);
-            sc->print_flag = 1;
+            sc->write_flags = 0;
             s_goto(sc, OP_P0LIST);
         } else {
             putstr(sc, "\n");
@@ -4535,7 +4530,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op)
             putstr(sc, "#<ENVIRONMENT>");
             s_return(sc, sc->T);
         } else if (!is_pair(sc->args)) {
-            printatom(sc, sc->args, sc->print_flag);
+            printatom(sc, sc->args, sc->write_flags);
             s_return(sc, sc->T);
         } else if (car(sc->args) == sc->QUOTE && ok_abbrev(cdr(sc->args))) {
             putstr(sc, "'");
@@ -4574,7 +4569,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op)
         } else {
             if (sc->args != sc->NIL) {
                 putstr(sc, " . ");
-                printatom(sc, sc->args, sc->print_flag);
+                printatom(sc, sc->args, sc->write_flags);
             }
             putstr(sc, ")");
             s_return(sc, sc->T);
@@ -5714,6 +5709,110 @@ static pointer prim_get_output_string(void)
     return _s_return(sc, s);
 }
 
+static pointer write_primitive(pointer obj, int write_flags)
+{
+    pointer outport;
+
+    outport = sc->outport;
+    if (arg_left()) {
+        arg_obj_type(&outport, is_outport, "output port");
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (outport != sc->outport) {
+        s_save(sc, OP_SET_OUTPORT, cons(sc, sc->outport, sc->NIL), sc->NIL);
+        sc->outport = outport;
+    }
+    sc->args = obj;
+    sc->write_flags = write_flags;
+    s_goto(sc, OP_WRITE_BEGIN);
+}
+
+/// *Procedure* (*write* _obj_ _port_)
+///
+/// From R7RS
+///
+/// Write a "machine-readable" representation of _obj_ to the given
+/// textual output port (as opposed to *display* which writes a more
+/// human-readable representation).
+///
+/// No newline is added at the end. Use *writeln* for that.
+///
+static pointer prim_write(void)
+{
+    pointer obj;
+
+    arg_obj(&obj);
+    return write_primitive(obj, 0);
+}
+
+/// *Procedure* (*writeln* _obj_ _port_)
+///
+/// From Racket
+///
+/// Like *write*, but add a newline at the end.
+///
+static pointer prim_writeln(void)
+{
+    pointer obj;
+
+    arg_obj(&obj);
+    return write_primitive(obj, WRITE_NEWLINE);
+}
+
+/// *Procedure* (*display* _obj_ _port_)
+///
+/// From R7RS
+///
+/// Write a "human-readable" representation of _obj_ to the given
+/// textual output port (as opposed to the *write* family which writes
+/// a machine-readable representation).
+///
+/// Strings that appear in the written representation are output as if
+/// by *write-string* instead of by *write*. Symbols are not escaped.
+/// Character objects appear in the representation as if written by
+/// *write-char* instead of by *write*.
+///
+/// No newline is added at the end. Use *displayln* for that.
+///
+static pointer prim_display(void)
+{
+    pointer obj;
+
+    arg_obj(&obj);
+    return write_primitive(obj, WRITE_DISPLAY);
+}
+
+/// *Procedure* (*displayln* _obj_ _port_)
+///
+/// From Racket
+///
+/// Like *display*, but add a newline at the end.
+///
+static pointer prim_displayln(void)
+{
+    pointer obj;
+
+    arg_obj(&obj);
+    return write_primitive(obj, WRITE_DISPLAY | WRITE_NEWLINE);
+}
+
+/// *Procedure* (*write-char* _char_ _port_)
+///
+/// From R7RS
+///
+/// Write the character _char_ (not a Scheme representation of the
+/// character) to the given textual output port.
+///
+static pointer prim_write_char(void)
+{
+    pointer obj;
+
+    arg_obj_type(&obj, is_character, "character");
+    return write_primitive(obj, WRITE_DISPLAY);
+}
+
 // Note, macro object is also a closure.
 // Therefore, (closure? <#MACRO>) ==> #t
 static pointer prim_closure_p(void) { return obj_predicate(is_closure); }
@@ -6809,6 +6908,8 @@ static const struct primitive primitives[] = {
     { "delete-directory", prim_delete_directory },
     { "delete-environment-variable!", prim_delete_environment_variable },
     { "delete-file", prim_delete_file },
+    { "display", prim_display },
+    { "displayln", prim_displayln },
     { "environment?", prim_environment_p },
     { "eof-object?", prim_eof_object_p },
     { "eq?", prim_eq_p },
@@ -6896,6 +6997,9 @@ static const struct primitive primitives[] = {
     { "user-uid", prim_user_uid },
     { "vector?", prim_vector_p },
     { "working-directory", prim_working_directory },
+    { "write", prim_write },
+    { "write-char", prim_write_char },
+    { "writeln", prim_writeln },
 };
 
 static const size_t nprimitive = sizeof(primitives) / sizeof(primitives[0]);
