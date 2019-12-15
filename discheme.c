@@ -126,8 +126,8 @@ extern char **environ;
 #define SHOW_ERROR_LINE 1
 #endif
 
-#define WRITE_NEWLINE (1 << 0)
-#define WRITE_DISPLAY (1 << 1)
+#define WRITE_DISPLAY (1 << 0)
+#define WRITE_NEWLINE (1 << 1)
 
 typedef struct scheme scheme;
 typedef struct cell *pointer;
@@ -2223,7 +2223,7 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
             }
         }
     } else if (is_string(l)) {
-        if (!f) {
+        if (f & WRITE_DISPLAY) {
             p = strvalue(l);
         } else { /* Hack, uses the fact that printing is needed */
             *pp = sc->strbuff;
@@ -2234,7 +2234,7 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen)
     } else if (is_character(l)) {
         int c = charvalue(l);
         p = sc->strbuff;
-        if (!f) {
+        if (f & WRITE_DISPLAY) {
             p[0] = c;
             p[1] = 0;
         } else {
@@ -2812,12 +2812,12 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op)
             s_return(sc, sc->value);
         } else {
             sc->write_flags = WRITE_NEWLINE;
+            sc->args = sc->value;
             s_goto(sc, OP_WRITE_BEGIN);
         }
 
     case OP_WRITE_BEGIN:
         s_save(sc, OP_WRITE_END, sc->NIL, sc->NIL);
-        sc->args = sc->value;
         s_goto(sc, OP_P0LIST);
 
     case OP_WRITE_END:
@@ -4530,7 +4530,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op)
             putstr(sc, "#<ENVIRONMENT>");
             s_return(sc, sc->T);
         } else if (!is_pair(sc->args)) {
-            printatom(sc, sc->args, sc->write_flags);
+            printatom(sc, sc->args, sc->write_flags & WRITE_DISPLAY);
             s_return(sc, sc->T);
         } else if (car(sc->args) == sc->QUOTE && ok_abbrev(cdr(sc->args))) {
             putstr(sc, "'");
