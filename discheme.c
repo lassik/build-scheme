@@ -3572,25 +3572,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         s_return(sc, car(sc->args));
     }
 
-    case OP_STRAPPEND: { /* string-append */
-        /* in 1.29 string-append was in Scheme in init.scm but was too slow */
-        int len = 0;
-        pointer newstr;
-        char *pos;
-
-        /* compute needed length for new string */
-        for (x = sc->args; x != sc->NIL; x = cdr(x)) {
-            len += strlength(car(x));
-        }
-        newstr = mk_empty_string(sc, len, ' ');
-        /* store the contents of the argument strings into the new string */
-        for (pos = strvalue(newstr), x = sc->args; x != sc->NIL;
-             pos += strlength(car(x)), x = cdr(x)) {
-            memcpy(pos, strvalue(car(x)), strlength(car(x)));
-        }
-        s_return(sc, newstr);
-    }
-
     case OP_SUBSTR: { /* substring */
         char *str;
         int index0;
@@ -5608,6 +5589,51 @@ static pointer prim_gensym(void)
 
 /// === Strings
 
+/// *Procedure* (*string-append* _string_...)
+///
+/// From R7RS
+///
+/// Returns a fresh string whose characters are the concatenation of
+/// the characters in the given strings.
+///
+static pointer prim_string_append(void)
+{
+    char *buf;
+    char *newbuf;
+    const char *sub;
+    size_t sublen, len, cap;
+    pointer string;
+
+    buf = 0;
+    len = 0;
+    cap = 8;
+    while (arg_left()) {
+        if (!arg_string(&sub)) {
+            free(buf);
+            return sc->NIL;
+        }
+        sublen = strlen(sub);
+        while (cap <= len + sublen) {
+            cap *= 2;
+        }
+        newbuf = realloc(buf, cap);
+        if (!newbuf) {
+            free(buf);
+            return sc->NIL;
+        }
+        buf = newbuf;
+        memcpy(buf + len, sub, sublen + 1);
+        len += sublen;
+    }
+    if (arg_err()) {
+        free(buf);
+        return ARG_ERR;
+    }
+    string = mk_string(sc, buf ? buf : "");
+    free(buf);
+    return _s_return(sc, string);
+}
+
 /// *Procedure* (*string->list* _string_)
 ///
 /// From R7RS
@@ -6727,6 +6753,7 @@ static const struct primitive primitives[] = {
     { "set-working-directory", prim_set_working_directory },
     { "string->list", prim_string_to_list },
     { "string->symbol", prim_string_to_symbol },
+    { "string-append", prim_string_append },
     { "string?", prim_string_p },
     { "symbol->string", prim_symbol_to_string },
     { "symbol?", prim_symbol_p },
