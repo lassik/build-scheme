@@ -5581,15 +5581,21 @@ static pointer prim_string_to_atom(void)
 /// === Numbers
 ///
 
-/// *Procedure* (*<* _a_ _b_) +
-/// *Procedure* (*\<=* _a_ _b_) +
-/// *Procedure* (*=* _a_ _b_) +
-/// *Procedure* (*>* _a_ _b_) +
-/// *Procedure* (*>=* _a_ _b_) +
+/// *Procedure* (*<* _a_ _b_ ...) +
+/// *Procedure* (*\<=* _a_ _b_ ...) +
+/// *Procedure* (*=* _a_ _b_ ...) +
+/// *Procedure* (*>* _a_ _b_ ...) +
+/// *Procedure* (*>=* _a_ _b_ ...) +
 ///
 /// From R7RS
 ///
-/// Return `#t` if _a_ and _b_ are the same object in memory. Else
+/// Return `#t` if each number is less than, less than or equal,
+/// equal, greater than, or greater than or equal (respectively) than
+/// the last. Else return `#f`.
+///
+/// For example, `(< 1 2 3)` returns `#t` if the mathematical
+/// comparison 1 < 2 < 3 is true. You can chain as many numbers as you
+/// like; at least two are needed.
 ///
 static pointer prim_num_lt(void) { return cmp_primitive(num_lt); }
 
