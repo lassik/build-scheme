@@ -11,13 +11,14 @@ archlinux_task:
   setup_script:
     - pacman --noconfirm -Sy
     - pacman --noconfirm -S gcc
-  compile_script: ./build-strict.sh
+  compile_script:
+    - CFLAGS=" -Wall -Wextra -pedantic -std=gnu99 -Og -g" ./build-strict.sh
 centos_task:
   container:
     image: centos
   setup_script:
     - yum update -y
-    - yum install -y gcc glibc-devel
+    - yum install -y gcc glibc-devel libasan
   compile_script: ./build-strict.sh
 debian_task:
   container:
