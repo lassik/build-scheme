@@ -5603,6 +5603,32 @@ static pointer prim_num_ge(void) { return cmp_primitive(num_ge); }
 
 static pointer prim_char_p(void) { return obj_predicate(is_character); }
 
+/// === Control features
+///
+
+/// *Procedure* (*for-each* _proc_ _list_)
+///
+/// From R7RS
+///
+/// Call _proc_ once for each element in _list_ in the order they
+/// appear.
+///
+static pointer prim_for_each(void)
+{
+    pointer proc, list;
+
+    arg_obj_type(&proc, is_callable, "procedure");
+    arg_obj_type(&list, is_list, "list");
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    for (; is_pair(list); list = cdr(list)) {
+        scheme_call(sc, proc, cons(sc, car(list), sc->NIL));
+        // TODO: check for error
+    }
+    return _s_return(sc, sc->F);
+}
+
 /// === Input and output
 
 static pointer open_string_primitive(int prop)
@@ -6791,6 +6817,7 @@ static const struct primitive primitives[] = {
     { "file-info:size", prim_file_info_size },
     { "file-info:uid", prim_file_info_uid },
     { "file-info?", prim_file_info_p },
+    { "for-each", prim_for_each },
     { "gc", prim_gc },
     { "gc-verbose", prim_gc_verbose },
     { "gensym", prim_gensym },
