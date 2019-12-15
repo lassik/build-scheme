@@ -612,8 +612,6 @@ static pointer find_slot_in_env(
 static pointer mk_number(scheme *sc, num n);
 static char *store_string(scheme *sc, int len, const char *str, char fill);
 static pointer mk_vector(scheme *sc, int len);
-static pointer mk_atom(scheme *sc, char *q);
-static pointer mk_sharp_const(scheme *sc, char *name);
 static pointer mk_port(scheme *sc, port *p);
 static pointer port_from_filename(scheme *sc, const char *fn, int prop);
 static pointer port_from_file(scheme *sc, FILE *, int prop);
@@ -1330,7 +1328,7 @@ static pointer mk_atom(scheme *sc, char *q)
 }
 
 /* make constant */
-static pointer mk_sharp_const(scheme *sc, char *name)
+static pointer mk_sharp_const(scheme *sc, const char *name)
 {
     long x;
     char tmp[STRBUFFSIZE];
@@ -3459,65 +3457,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         c = (unsigned char)ivalue(car(sc->args));
         c = tolower(c);
         s_return(sc, mk_character(sc, (char)c));
-    }
-
-    case OP_STR2ATOM: /* string->atom */ {
-        char *s = strvalue(car(sc->args));
-        long pf = 0;
-        if (cdr(sc->args) != sc->NIL) {
-            /* we know cadr(sc->args) is a natural number */
-            /* see if it is 2, 8, 10, or 16, or error */
-            pf = ivalue_unchecked(cadr(sc->args));
-            if (pf == 16 || pf == 10 || pf == 8 || pf == 2) {
-                /* base is OK */
-            } else {
-                pf = -1;
-            }
-        }
-        if (pf < 0) {
-            Error_1(sc, "string->atom: bad base:", cadr(sc->args));
-        } else if (*s == '#') /* no use of base! */ {
-            s_return(sc, mk_sharp_const(sc, s + 1));
-        } else {
-            if (pf == 0 || pf == 10) {
-                s_return(sc, mk_atom(sc, s));
-            } else {
-                char *ep;
-                long iv = strtol(s, &ep, (int)pf);
-                if (*ep == 0) {
-                    s_return(sc, mk_integer(sc, iv));
-                } else {
-                    s_return(sc, sc->F);
-                }
-            }
-        }
-    }
-
-    case OP_ATOM2STR: /* atom->string */ {
-        long pf = 0;
-        x = car(sc->args);
-        if (cdr(sc->args) != sc->NIL) {
-            /* we know cadr(sc->args) is a natural number */
-            /* see if it is 2, 8, 10, or 16, or error */
-            pf = ivalue_unchecked(cadr(sc->args));
-            if (is_number(x)
-                && (pf == 16 || pf == 10 || pf == 8 || pf == 2)) {
-                /* base is OK */
-            } else {
-                pf = -1;
-            }
-        }
-        if (pf < 0) {
-            Error_1(sc, "atom->string: bad base:", cadr(sc->args));
-        } else if (is_number(x) || is_character(x) || is_string(x)
-            || is_symbol(x)) {
-            char *p;
-            int len;
-            atom2str(sc, x, (int)pf, &p, &len);
-            s_return(sc, mk_counted_string(sc, p, len));
-        } else {
-            Error_1(sc, "atom->string: not an atom:", x);
-        }
     }
 
     case OP_STRREF: { /* string-ref */
@@ -5660,8 +5599,68 @@ static pointer prim_string_to_list(void)
     }
     return _s_return(sc, list);
 }
-/// === Numbers
 
+/// *Procedure* (*atom->string* _atom_)
+///
+/// From TinyScheme
+///
+static pointer prim_atom_to_string(void)
+{
+    long base = -1;
+    pointer x;
+    char *buf;
+    int len;
+
+    arg_obj(&x);
+    if (arg_left()) {
+        arg_long(&base, 2, 16);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (!is_number(x) && !is_character(x) && !is_string(x) && !is_symbol(x)) {
+        return _Error_1(sc, "atom->string: not an atom:", x);
+    }
+    if (is_number(x) && (base != -1) && (base != 2) && (base != 8)
+        && (base != 10) && (base != 16)) {
+        return _Error_1(sc, "atom->string: bad base", 0);
+    }
+    atom2str(sc, x, (int)base, &buf, &len);
+    return _s_return(sc, mk_counted_string(sc, buf, len));
+}
+
+/// *Procedure* (*string->atom* _string_)
+///
+/// From TinyScheme
+///
+static pointer prim_string_to_atom(void)
+{
+    long base = 0;
+    long longval;
+    char *limit;
+    const char *s;
+
+    arg_string(&s);
+    if (arg_left()) {
+        arg_long(&base, 2, 16);
+    }
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    if (!base || (base == 10)) {
+        return _s_return(sc, mk_atom(sc, strdup(s)));
+    }
+    if ((base != 2) && (base != 8) && (base != 16)) {
+        return _Error_1(sc, "atom->string: bad base", 0);
+    }
+    if (*s == '#') { // no use of base!
+        return _s_return(sc, mk_sharp_const(sc, s + 1));
+    }
+    longval = strtol(s, &limit, (int)base);
+    return _s_return(sc, *limit ? sc->F : mk_integer(sc, longval));
+}
+
+/// === Numbers
 ///
 
 /// *Procedure* (*<* _a_ _b_) +
@@ -6710,6 +6709,7 @@ static const struct primitive primitives[] = {
     { ">=", prim_num_ge },
     { "append", prim_append },
     { "apropos", prim_apropos },
+    { "atom->string", prim_atom_to_string },
     { "boolean?", prim_boolean_p },
     { "bounded-length", prim_bounded_length },
     { "car", prim_car },
@@ -6775,6 +6775,7 @@ static const struct primitive primitives[] = {
     { "set-file-mode", prim_set_file_mode },
     { "set-umask", prim_set_umask },
     { "set-working-directory", prim_set_working_directory },
+    { "string->atom", prim_string_to_atom },
     { "string->list", prim_string_to_list },
     { "string->symbol", prim_string_to_symbol },
     { "string-append", prim_string_append },
