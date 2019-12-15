@@ -3520,9 +3520,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         }
     }
 
-    case OP_STRLEN: /* string-length */
-        s_return(sc, mk_integer(sc, strlength(car(sc->args))));
-
     case OP_STRREF: { /* string-ref */
         char *str;
         int index;
@@ -6416,6 +6413,20 @@ static pointer prim_make_string(void)
     return _s_return(sc, mk_empty_string(sc, len, fill));
 }
 
+/// *Procedure* (*string-length* _string_)
+///
+/// From R7RS
+///
+/// Return the number of characters in _string_.
+///
+static pointer prim_string_length(void)
+{
+    pointer p;
+
+    arg_obj_type(&p, is_string, "string");
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_integer(sc, strlength(p)));
+}
+
 /// *Procedure* (*new-segment* _n_)
 ///
 /// From TinyScheme
@@ -6767,6 +6778,7 @@ static const struct primitive primitives[] = {
     { "string->list", prim_string_to_list },
     { "string->symbol", prim_string_to_symbol },
     { "string-append", prim_string_append },
+    { "string-length", prim_string_length },
     { "string?", prim_string_p },
     { "symbol->string", prim_symbol_to_string },
     { "symbol?", prim_symbol_p },
