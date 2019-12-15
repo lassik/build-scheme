@@ -3487,9 +3487,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         s_return(sc, mk_character(sc, (char)c));
     }
 
-    case OP_STR2SYM: /* string->symbol */
-        s_return(sc, mk_symbol(sc, strvalue(car(sc->args))));
-
     case OP_STR2ATOM: /* string->atom */ {
         char *s = strvalue(car(sc->args));
         long pf = 0;
@@ -5559,6 +5556,21 @@ static pointer prim_reverse(void)
 
 /// === Symbols
 
+/// *Procedure* (*string->symbol* _string_)
+///
+/// From R7RS
+///
+/// Return the symbol whose name is _string_. _string_ can contain special
+/// characters that would require escaping in a literal symbol.
+///
+static pointer prim_string_to_symbol(void)
+{
+    const char *s;
+
+    arg_string(&s);
+    return arg_err() ? ARG_ERR : _s_return(sc, mk_symbol(sc, s));
+}
+
 /// === Characters
 
 /// === Strings
@@ -6680,6 +6692,7 @@ static const struct primitive primitives[] = {
     { "set-umask", prim_set_umask },
     { "set-working-directory", prim_set_working_directory },
     { "string->list", prim_string_to_list },
+    { "string->symbol", prim_string_to_symbol },
     { "string?", prim_string_p },
     { "symbol?", prim_symbol_p },
     { "timespec", prim_timespec },
