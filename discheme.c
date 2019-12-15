@@ -4285,64 +4285,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op)
         s_return(sc, p);
     }
 
-    case OP_OPEN_INSTRING: /* open-input-string */
-    case OP_OPEN_INOUTSTRING: /* open-input-output-string */ {
-        int prop = 0;
-        pointer p;
-        switch (op) {
-        case OP_OPEN_INSTRING:
-            prop = port_input;
-            break;
-        case OP_OPEN_INOUTSTRING:
-            prop = port_input | port_output;
-            break;
-        }
-        p = port_from_string(sc, strvalue(car(sc->args)),
-            strvalue(car(sc->args)) + strlength(car(sc->args)), prop);
-        if (p == sc->NIL) {
-            s_return(sc, sc->F);
-        }
-        s_return(sc, p);
-    }
-    case OP_OPEN_OUTSTRING: /* open-output-string */ {
-        pointer p;
-        if (car(sc->args) == sc->NIL) {
-            p = port_from_scratch(sc);
-            if (p == sc->NIL) {
-                s_return(sc, sc->F);
-            }
-        } else {
-            p = port_from_string(sc, strvalue(car(sc->args)),
-                strvalue(car(sc->args)) + strlength(car(sc->args)),
-                port_output);
-            if (p == sc->NIL) {
-                s_return(sc, sc->F);
-            }
-        }
-        s_return(sc, p);
-    }
-    case OP_GET_OUTSTRING: /* get-output-string */ {
-        port *p;
-
-        if ((p = car(sc->args)->_object._port)->kind & port_string) {
-            long size;
-            char *str;
-
-            size = p->rep.string.curr - p->rep.string.start + 1;
-            str = sc->malloc(size);
-            if (str != NULL) {
-                pointer s;
-
-                memcpy(str, p->rep.string.start, size - 1);
-                str[size - 1] = '\0';
-                s = mk_string(sc, str);
-                sc->free(str);
-                s_return(sc, s);
-            }
-        }
-        s_return(sc, sc->F);
-    }
-
     case OP_CLOSE_INPORT: /* close-input-port */
         port_close(sc, car(sc->args), port_input);
         s_return(sc, sc->T);
@@ -5657,6 +5599,83 @@ static pointer prim_char_p(void) { return obj_predicate(is_character); }
 
 /// === Input and output
 
+static pointer open_string_primitive(int prop)
+{
+    pointer string, p;
+
+    arg_obj_type(&string, is_string, "string");
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    p = port_from_string(
+        sc, strvalue(string), strvalue(string) + strlength(string), prop);
+    return _s_return(sc, ((p == sc->NIL) ? sc->F : p));
+}
+
+/// *Procedure* (*open-input-string* _string_)
+///
+/// From SRFI 170
+///
+static pointer prim_open_input_string(void)
+{
+    return open_string_primitive(port_input);
+}
+
+/// *Procedure* (*open-input-output-string* _string_)
+///
+/// From TinyScheme
+///
+static pointer prim_open_input_output_string(void)
+{
+    return open_string_primitive(port_input | port_output);
+}
+
+/// *Procedure* (*open-output-string*)
+///
+/// From SRFI 170
+///
+static pointer prim_open_output_string(void)
+{
+    pointer p;
+
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    p = port_from_scratch(sc);
+    return _s_return(sc, ((p == sc->NIL) ? sc->F : p));
+}
+
+/// *Procedure* (*get-output-string* _port_)
+///
+/// From SRFI 170
+///
+static pointer prim_get_output_string(void)
+{
+    size_t len;
+    pointer portobj, s;
+    port *port;
+    char *str;
+
+    arg_obj_type(&portobj, is_outport, "output port");
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    port = portobj->_object._port;
+    if (!(port->kind & port_string)) {
+        return _Error_1(sc, "arg is not a string port", portobj);
+    }
+    len = port->rep.string.curr - port->rep.string.start;
+    str = sc->malloc(len + 1);
+    if (!str) {
+        return _s_return(sc, sc->F);
+    }
+    memcpy(str, port->rep.string.start, len);
+    str[len] = 0;
+    s = mk_string(sc, str);
+    sc->free(str);
+    return _s_return(sc, s);
+}
+
 // Note, macro object is also a closure.
 // Therefore, (closure? <#MACRO>) ==> #t
 static pointer prim_closure_p(void) { return obj_predicate(is_closure); }
@@ -6771,6 +6790,7 @@ static const struct primitive primitives[] = {
     { "gensym", prim_gensym },
     { "get-environment-variable", prim_get_environment_variable },
     { "get-environment-variables", prim_get_environment_variables },
+    { "get-output-string", prim_get_output_string },
     { "help", prim_help },
     { "input-port?", prim_input_port_p },
     { "integer?", prim_integer_p },
@@ -6786,6 +6806,9 @@ static const struct primitive primitives[] = {
     { "number?", prim_number_p },
     { "oblist", prim_oblist },
     { "open-directory-list", prim_open_directory_list },
+    { "open-input-output-string", prim_open_input_output_string },
+    { "open-input-string", prim_open_input_string },
+    { "open-output-string", prim_open_output_string },
     { "output-port?", prim_output_port_p },
     { "pair?", prim_pair_p },
     { "pid", prim_pid },
