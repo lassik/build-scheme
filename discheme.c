@@ -3520,18 +3520,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         }
     }
 
-    case OP_MKSTRING: { /* make-string */
-        int fill = ' ';
-        int len;
-
-        len = ivalue(car(sc->args));
-
-        if (cdr(sc->args) != sc->NIL) {
-            fill = charvalue(cadr(sc->args));
-        }
-        s_return(sc, mk_empty_string(sc, len, (char)fill));
-    }
-
     case OP_STRLEN: /* string-length */
         s_return(sc, mk_integer(sc, strlength(car(sc->args))));
 
@@ -6388,6 +6376,14 @@ static pointer prim_integer_p(void) { return obj_predicate(is_integer); }
 
 static pointer prim_macro_p(void) { return obj_predicate(is_macro); }
 
+/// *Procedure* (*make-string* _n_ [_char_])
+///
+/// From R7RS
+///
+/// Return a fresh _n_-character string containing _char_ repeated _n_
+/// times. The default _char_ is undefined in R7RS; in Desert Island
+/// Scheme it is an ASCII space.
+///
 static pointer prim_make_string(void)
 {
     long len;
