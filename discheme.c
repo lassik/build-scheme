@@ -3493,11 +3493,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op)
         }
     }
 
-    case OP_SYM2STR: /* symbol->string */
-        x = mk_string(sc, symname(car(sc->args)));
-        setimmutable(x);
-        s_return(sc, x);
-
     case OP_ATOM2STR: /* atom->string */ {
         long pf = 0;
         x = car(sc->args);
@@ -5544,6 +5539,26 @@ static pointer prim_reverse(void)
 
 /// === Symbols
 
+/// *Procedure* (*symbol->string* _symbol_) => _string_
+///
+/// From R7RS
+///
+/// Return the name of _symbol_ as a string, but without adding escapes.
+///
+static pointer prim_symbol_to_string(void)
+{
+    const char *sym;
+    pointer str;
+
+    arg_symbol(&sym);
+    if (arg_err()) {
+        return ARG_ERR;
+    }
+    str = mk_string(sc, sym);
+    setimmutable(str);
+    return _s_return(sc, str);
+}
+
 /// *Procedure* (*string->symbol* _string_)
 ///
 /// From R7RS
@@ -6713,6 +6728,7 @@ static const struct primitive primitives[] = {
     { "string->list", prim_string_to_list },
     { "string->symbol", prim_string_to_symbol },
     { "string?", prim_string_p },
+    { "symbol->string", prim_symbol_to_string },
     { "symbol?", prim_symbol_p },
     { "timespec", prim_timespec },
     { "timespec-nanoseconds", prim_timespec_nanoseconds },

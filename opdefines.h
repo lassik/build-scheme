@@ -64,7 +64,6 @@
     _OP_DEF(opexe_2, "integer->char",                  1,  1,       TST_NATURAL,                     OP_INT2CHAR         )
     _OP_DEF(opexe_2, "char-upcase",                    1,  1,       TST_CHAR,                        OP_CHARUPCASE       )
     _OP_DEF(opexe_2, "char-downcase",                  1,  1,       TST_CHAR,                        OP_CHARDNCASE       )
-    _OP_DEF(opexe_2, "symbol->string",                 1,  1,       TST_SYMBOL,                      OP_SYM2STR          )
     _OP_DEF(opexe_2, "atom->string",                   1,  2,       TST_ANY TST_NATURAL,             OP_ATOM2STR         )
     _OP_DEF(opexe_2, "string->atom",                   1,  2,       TST_STRING TST_NATURAL,          OP_STR2ATOM         )
     _OP_DEF(opexe_2, "make-string",                    1,  2,       TST_NATURAL TST_CHAR,            OP_MKSTRING         )
