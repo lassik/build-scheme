@@ -4,15 +4,15 @@ alpine_task:
   setup_script:
     - apk update
     - apk add build-base
-  compile_script: ./build-strict.sh
+  compile_script:
+    - CFLAGS=" -Wall -Wextra -pedantic -std=gnu99 -Og -g" ./build-strict.sh
 archlinux_task:
   container:
     image: archlinux/base
   setup_script:
     - pacman --noconfirm -Sy
     - pacman --noconfirm -S gcc
-  compile_script:
-    - CFLAGS=" -Wall -Wextra -pedantic -std=gnu99 -Og -g" ./build-strict.sh
+  compile_script: ./build-strict.sh
 centos_task:
   container:
     image: centos
