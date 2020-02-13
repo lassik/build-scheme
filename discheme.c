@@ -6484,19 +6484,6 @@ static pointer prim_gc(void)
     s_return(sc, sc->T);
 }
 
-static pointer prim_gc_verbose(void)
-{
-    int oldval, newval;
-
-    arg_boolean(&newval);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    oldval = sc->gc_verbose;
-    sc->gc_verbose = newval;
-    s_retbool(oldval);
-}
-
 /// *Procedure* (*get-environment-variable* _name_)
 ///
 /// From R7RS, SRFI 98
@@ -6922,7 +6909,6 @@ static const struct primitive primitives[] = {
     { "file-info?", prim_file_info_p },
     { "for-each", prim_for_each },
     { "gc", prim_gc },
-    { "gc-verbose", prim_gc_verbose },
     { "gensym", prim_gensym },
     { "get-environment-variable", prim_get_environment_variable },
     { "get-environment-variables", prim_get_environment_variables },
