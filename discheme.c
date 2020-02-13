@@ -6589,37 +6589,6 @@ static pointer prim_string_ref(void)
     return _s_return(sc, mk_character(sc, ((unsigned char *)str)[index]));
 }
 
-/// *Procedure* (*string-set!* _string_ _index_ _char_)
-///
-/// From R7RS
-///
-/// Store _char_ as the character at index _index_ in _string_. The
-/// _index_ of the first character in the string is zero.
-///
-static pointer prim_string_set(void)
-{
-    pointer string;
-    char *str;
-    long index, c;
-
-    arg_obj_type(&string, is_string, "string");
-    arg_long(&index, 0, LONG_MAX);
-    arg_char(&c);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    if (is_immutable(string)) {
-        return _Error_1(
-            sc, "string-set!: unable to alter immutable string:", string);
-    }
-    str = strvalue(string);
-    if (index >= strlength(string)) {
-        return _Error_1(sc, "string-set!: index out of bounds", 0);
-    }
-    str[index] = c;
-    return _s_return(sc, string);
-}
-
 static pointer prim_number_p(void) { return obj_predicate(is_number); }
 
 static pointer prim_oblist(void)
@@ -6953,7 +6922,6 @@ static const struct primitive primitives[] = {
     { "string-append", prim_string_append },
     { "string-length", prim_string_length },
     { "string-ref", prim_string_ref },
-    { "string-set!", prim_string_set },
     { "string?", prim_string_p },
     { "substring", prim_substring },
     { "symbol->string", prim_symbol_to_string },
