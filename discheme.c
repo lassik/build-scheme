@@ -6633,25 +6633,6 @@ static pointer prim_string_set(void)
     return _s_return(sc, string);
 }
 
-/// *Procedure* (*new-segment* _n_)
-///
-/// From TinyScheme
-///
-/// Allocates more memory for Scheme. _n_ is the number of new memory
-/// segments to get.
-///
-static pointer prim_new_segment(void)
-{
-    long n;
-
-    arg_long(&n, 0, LONG_MAX);
-    if (arg_err()) {
-        return ARG_ERR;
-    }
-    alloc_cellseg(sc, n);
-    s_return(sc, sc->T);
-}
-
 static pointer prim_number_p(void) { return obj_predicate(is_number); }
 
 static pointer prim_oblist(void)
@@ -6956,7 +6937,6 @@ static const struct primitive primitives[] = {
     { "make-list", prim_make_list },
     { "make-string", prim_make_string },
     { "map", prim_map },
-    { "new-segment", prim_new_segment },
     { "newline", prim_newline },
     { "not", prim_not },
     { "null?", prim_null_p },
