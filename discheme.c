@@ -206,7 +206,6 @@ struct user_info {
     pointer home_dir;
     pointer shell;
     pointer full_name;
-    pointer parsed_full_name;
 };
 
 /* cell structure */
@@ -1538,8 +1537,6 @@ static void finalize_cell(scheme *sc, pointer a)
         finalize_cell(sc, info->home_dir);
         finalize_cell(sc, info->shell);
         finalize_cell(sc, info->full_name);
-        finalize_cell(
-            sc, info->parsed_full_name); // TODO: this is wrong, it's a list
         sc->free(info);
     } else if (is_directory_list(a)) {
         os_close_directory_list(a);
@@ -4196,7 +4193,6 @@ static pointer os_user_info(const char *name, long uid)
     info->home_dir = mk_string(sc, pw->pw_dir);
     info->shell = mk_string(sc, pw->pw_shell);
     info->full_name = mk_string(sc, pw->pw_gecos);
-    info->parsed_full_name = cons(sc, info->full_name, sc->NIL);
     return _s_return(sc, mk_opaque_type(T_USER_INFO, info));
 }
 #endif
@@ -6922,18 +6918,6 @@ static pointer prim_user_info_full_name(void)
     return arg_err() ? ARG_ERR : _s_return(sc, info->full_name);
 }
 
-/// *Procedure* (*user-info:parsed-full-name* _user-info_)
-///
-/// From SRFI 170
-///
-static pointer prim_user_info_parsed_full_name(void)
-{
-    struct user_info *info;
-
-    arg_user_info(&info);
-    return arg_err() ? ARG_ERR : _s_return(sc, info->parsed_full_name);
-}
-
 static pointer prim_vector_p(void) { return obj_predicate(is_vector); }
 
 static pointer prim_working_directory(void)
@@ -7052,7 +7036,6 @@ static const struct primitive primitives[] = {
     { "user-info:gid", prim_user_info_gid },
     { "user-info:home-dir", prim_user_info_home_dir },
     { "user-info:name", prim_user_info_name },
-    { "user-info:parsed-full-name", prim_user_info_parsed_full_name },
     { "user-info:shell", prim_user_info_shell },
     { "user-info:uid", prim_user_info_uid },
     { "user-info?", prim_user_info_p },
