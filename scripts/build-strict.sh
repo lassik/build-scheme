@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-cd "$(dirname "$0")"
+cd "$(dirname "$0")"/..
 echo "Entering directory '$PWD'"
 CC=${CC:-gcc}
 CFLAGS=${CFLAGS:--Wall -Wextra -pedantic -std=gnu99 -fsanitize=address -Og -g}
@@ -10,4 +10,4 @@ set -x
 $CC $CFLAGS \
     -D SCHEME_BUILD_DATE=\""$build_date"\" \
     -D SCHEME_GIT_COMMIT=\""$git_commit"\" \
-    -o discheme discheme.c
+    -o buildscm buildscm.c
