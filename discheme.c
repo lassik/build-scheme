@@ -31,12 +31,12 @@
 /// - Desert Island Scheme by Lassi Kortela
 ///
 
-#ifndef SCHEME_VERSION
-#define SCHEME_VERSION ""
-#endif
-
 #ifndef SCHEME_BUILD_DATE
 #define SCHEME_BUILD_DATE ""
+#endif
+
+#ifndef SCHEME_GIT_COMMIT
+#define SCHEME_GIT_COMMIT ""
 #endif
 
 #ifdef __unix__
@@ -7436,24 +7436,25 @@ static void version(void)
     printf("This is Desert Island Scheme, a Scheme interpreter in one C "
            "file.\n\n");
     printf("(command \"discheme\")\n");
-    printf("(scheme-id discheme)\n");
     printf("(languages scheme)\n");
-    printf("(features");
+    printf("(encodings \"utf-8\")\n");
+    printf("(scheme.features");
     for (sp = features_as_strings; (s = *sp); sp++) {
         printf(" %s", s);
     }
     printf(")\n");
-    printf("(discheme/specs)\n");
-    printf("(discheme/unstable-spec 2019)\n");
-    printf("(revision \"%s\")\n", SCHEME_VERSION);
-    printf("(build-date \"%s\")\n", SCHEME_BUILD_DATE);
-    printf("(c-type-bits (int %d) (long %d) (pointer %d))\n",
+    printf("(scheme.id discheme)\n");
+    printf("(discheme.specs)\n");
+    printf("(discheme.unstable-spec 2019)\n");
+    printf("(build.date \"%s\")\n", SCHEME_BUILD_DATE);
+    printf("(build.git.commit \"%s\")\n", SCHEME_GIT_COMMIT);
+    printf("(c.type-bits (int %d) (long %d) (pointer %d))\n",
         (int)(sizeof(int) * CHAR_BIT), (int)(sizeof(long) * CHAR_BIT),
         (int)(sizeof(void *) * CHAR_BIT));
     s = getenv("LANG");
-    printf("(env/LANG \"%s\")\n", s ? s : "");
+    printf("(os.env.LANG \"%s\")\n", s ? s : "");
     s = getenv("TERM");
-    printf("(env/TERM \"%s\")\n", s ? s : "");
+    printf("(os.env.TERM \"%s\")\n", s ? s : "");
     exit(0);
 }
 
@@ -7510,8 +7511,8 @@ int main(int argc, char **argv)
         } else if (!strcmp(progname, "easter")) {
             prompt = "\xf0\x9f\x97\xbf  ";
         }
-        if (SCHEME_VERSION[0]) {
-            printf("Desert Island Scheme (version %s)\n", SCHEME_VERSION);
+        if (SCHEME_GIT_COMMIT[0]) {
+            printf("Desert Island Scheme (version %s)\n", SCHEME_GIT_COMMIT);
         } else {
             printf("Desert Island Scheme\n");
         }
